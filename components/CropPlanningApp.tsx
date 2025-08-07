@@ -1,22 +1,215 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, SetStateAction, ChangeEvent } from 'react';
 import { Calendar, Download, AlertTriangle, CheckCircle, Scissors } from 'lucide-react';
+
+// =============================================================================
+// TYPE DEFINITIONS
+// =============================================================================
+
+export interface Order {
+  id: number;
+  customer: string;
+  commodity: string;
+  volume: number;
+  marketType: 'Fresh Cut' | 'Bulk';
+  deliveryDate: string;
+  isWeekly: boolean;
+}
+
+export interface Variety {
+  id: number;
+  name: string;
+  growingWindow: {
+    start: string;
+    end: string;
+  };
+  daysToHarvest: number;
+  bedSize: string;
+  spacing: string;
+  plantType: 'transplant' | 'direct seed';
+  idealStand: number;
+  marketTypes: ('Fresh Cut' | 'Bulk')[];
+  budgetYieldPerAcre: {
+    'Fresh Cut': number;
+    'Bulk': number;
+  };
+  preferences: {
+    Jan: number;
+    Feb: number;
+    Mar: number;
+    Apr: number;
+    May: number;
+    Jun: number;
+    Jul: number;
+    Aug: number;
+    Sep: number;
+    Oct: number;
+    Nov: number;
+    Dec: number;
+  };
+}
+
+export interface Commodity {
+  id: number;
+  name: string;
+  varieties: Variety[];
+}
+
+export interface Lot {
+  id: number;
+  number: string;
+  acres: number;
+  soilType: string;
+  lastCrop: string;
+  lastPlantDate: string;
+  microclimate: 'Cool' | 'Moderate' | 'Warm' | 'Hot';
+}
+
+export interface Ranch {
+  id: number;
+  name: string;
+  lots: Lot[];
+}
+
+export interface Region {
+  id: number;
+  region: string;
+  ranches: Ranch[];
+}
+
+export type LandStructure = Region[];
+
+export interface Planting {
+  id: number;
+  customer: string;
+  region: string;
+  ranch: string;
+  lot: string;
+  sublot: string;
+  displayLotId: string;
+  uniqueLotId?: string;
+  marketType: 'Fresh Cut' | 'Bulk';
+  crop: string;
+  variety: string;
+  volumeOrdered: number;
+  acres: number;
+  wetDate: string;
+  budgetedDaysToHarvest: number;
+  bedSize: string;
+  spacing: string;
+  budgetedHarvestDate: string;
+  idealStandPerAcre: number;
+  budgetYieldPerAcre: number;
+  totalYield: number;
+  assigned: boolean;
+  parentPlantingId: number | null;
+}
+
+export interface CapacityInfo {
+  totalAcres: number;
+  usedAcres: number;
+  availableAcres: number;
+  plantingCount: number;
+  plantings: Planting[];
+}
+
+export interface FitCheck {
+  canFit: boolean;
+  availableAcres: number;
+  wouldExceedBy: number;
+  willRequireSplit: boolean;
+}
+
+export interface SplitResult {
+  assignedPortion: Planting;
+  unassignedRemainder: Planting;
+}
+
+export interface SplitNotification {
+  originalPlanting: Planting;
+  assignedPortion: Planting;
+  unassignedRemainder: Planting;
+  lot: Lot;
+  splitReason: string;
+}
+
+export interface AssignmentResult {
+  success: boolean;
+  type: 'assigned' | 'split' | 'no_capacity';
+  message?: string;
+  assignedAcres?: number;
+  remainingAcres?: number;
+}
+
+export interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  actions: React.ReactNode[];
+}
+
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'success' | 'warning' | 'destructive';
+  size?: 'sm' | 'md' | 'lg';
+  children: React.ReactNode;
+  className?: string;
+}
+
+export interface DataTableProps {
+  headers: string[];
+  data: any[];
+  renderRow: (item: any, index: number) => React.ReactNode;
+}
+
+export interface NavigationProps {
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+}
+
+export interface DragHandlers {
+  draggedPlanting: Planting | null;
+  handleDragStart: (e: React.DragEvent, planting: Planting) => void;
+  handleDragOver: (e: React.DragEvent) => void;
+  handleDrop: (e: React.DragEvent, regionId: number, ranchId: number, lotId: number) => void;
+}
+
+export interface TimeRange {
+  start: Date;
+  end: Date;
+}
+
+export interface DateMarker {
+  date: Date;
+  label: string;
+  isMonth: boolean;
+}
+
+export interface LotInfo {
+  id: string;
+  displayName: string;
+  region: string;
+  ranch: string;
+  lotNumber: string;
+  acres: number;
+  plantings: Planting[];
+}
 
 // =============================================================================
 // SERVICES - Business Logic Layer
 // =============================================================================
 
 const plantingService = {
-  generateFromOrders: (orders, commodities) => {
-    const plantings = [];
+  generateFromOrders: (orders: Order[], commodities: Commodity[]): Planting[] => {
+    const plantings: Planting[] = [];
     let plantingId = 1;
     
-    orders.forEach(order => {
-      const commodity = commodities.find(c => c.name === order.commodity);
+    orders.forEach((order: Order) => {
+      const commodity = commodities.find((c: Commodity) => c.name === order.commodity);
       
       if (commodity) {
-        const suitableVarieties = commodity.varieties.filter(v => 
+        const suitableVarieties = commodity.varieties.filter((v: Variety) => 
           v.marketTypes.includes(order.marketType) && 
           v.budgetYieldPerAcre[order.marketType] > 0
         );
@@ -30,7 +223,7 @@ const plantingService = {
           const plantingDate = new Date(deliveryDate);
           plantingDate.setDate(plantingDate.getDate() - variety.daysToHarvest);
           
-          const basePlanting = {
+          const basePlanting: Planting = {
             id: plantingId++,
             customer: order.customer,
             region: '',
@@ -81,7 +274,7 @@ const plantingService = {
     return plantings;
   },
   
-  assignToLot: (planting, region, ranch, lot, sublot = 'A') => {
+  assignToLot: (planting: Planting, region: Region, ranch: Ranch, lot: Lot, sublot: string = 'A'): Planting => {
     const uniqueLotId = `${region.id}-${ranch.id}-${lot.id}`;
     const displayLotId = `${lot.number}-${sublot}`;
     
@@ -97,7 +290,7 @@ const plantingService = {
     };
   },
 
-  splitPlanting: (originalPlanting, maxAcres) => {
+  splitPlanting: (originalPlanting: Planting, maxAcres: number): SplitResult => {
     const remainingAcres = Math.round((originalPlanting.acres - maxAcres) * 100) / 100;
     const acreRatio = maxAcres / originalPlanting.acres;
     
@@ -107,7 +300,7 @@ const plantingService = {
     const assignedTotalYield = Math.round(maxAcres * originalPlanting.budgetYieldPerAcre);
     const remainingTotalYield = Math.round(remainingAcres * originalPlanting.budgetYieldPerAcre);
     
-    const assignedPortion = {
+    const assignedPortion: Planting = {
       ...originalPlanting,
       id: Date.now() + Math.random(),
       acres: maxAcres,
@@ -116,7 +309,7 @@ const plantingService = {
       parentPlantingId: originalPlanting.id
     };
     
-    const unassignedRemainder = {
+    const unassignedRemainder: Planting = {
       ...originalPlanting,
       id: Date.now() + Math.random() + 1,
       acres: remainingAcres,
@@ -137,20 +330,20 @@ const plantingService = {
 };
 
 const capacityService = {
-  calculateLotCapacity: (regionId, ranchId, lotId, landStructure, plantings) => {
-    const region = landStructure.find(r => r.id === regionId);
-    const ranch = region?.ranches.find(r => r.id === ranchId);
-    const lot = ranch?.lots.find(l => l.id === lotId);
+  calculateLotCapacity: (regionId: number, ranchId: number, lotId: number, landStructure: LandStructure, plantings: Planting[]): CapacityInfo => {
+    const region = landStructure.find((r: Region) => r.id === regionId);
+    const ranch = region?.ranches.find((r: Ranch) => r.id === ranchId);
+    const lot = ranch?.lots.find((l: Lot) => l.id === lotId);
     
     if (!lot) {
       return { totalAcres: 0, usedAcres: 0, availableAcres: 0, plantingCount: 0, plantings: [] };
     }
     
-    const lotPlantings = plantings.filter(p => 
+    const lotPlantings = plantings.filter((p: Planting) => 
       p.assigned && p.uniqueLotId === `${regionId}-${ranchId}-${lotId}`
     );
     
-    const usedAcres = lotPlantings.reduce((total, p) => total + parseFloat(p.acres), 0);
+    const usedAcres = lotPlantings.reduce((total: number, p: Planting) => total + parseFloat(p.acres.toString()), 0);
     const availableAcres = Math.max(0, lot.acres - usedAcres);
     
     return {
@@ -162,12 +355,12 @@ const capacityService = {
     };
   },
   
-  getNextSublotDesignation: (regionId, ranchId, lotId, plantings) => {
-    const lotPlantings = plantings.filter(p => 
+  getNextSublotDesignation: (regionId: number, ranchId: number, lotId: number, plantings: Planting[]): string => {
+    const lotPlantings = plantings.filter((p: Planting) => 
       p.assigned && p.uniqueLotId === `${regionId}-${ranchId}-${lotId}`
     );
     
-    const usedSublots = lotPlantings.map(p => p.sublot).filter(Boolean);
+    const usedSublots = lotPlantings.map((p: Planting) => p.sublot).filter(Boolean);
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     
     for (let i = 0; i < alphabet.length; i++) {
@@ -179,7 +372,7 @@ const capacityService = {
     return 'A';
   },
   
-  canFitInLot: (plantingAcres, regionId, ranchId, lotId, landStructure, plantings) => {
+  canFitInLot: (plantingAcres: number, regionId: number, ranchId: number, lotId: number, landStructure: LandStructure, plantings: Planting[]): FitCheck => {
     const capacity = capacityService.calculateLotCapacity(regionId, ranchId, lotId, landStructure, plantings);
     return {
       canFit: plantingAcres <= capacity.availableAcres,
@@ -191,11 +384,11 @@ const capacityService = {
 };
 
 const csvService = {
-  exportPlantings: (plantings) => {
+  exportPlantings: (plantings: Planting[]): void => {
     try {
       const headers = ['Customer', 'Region', 'Ranch', 'Lot', 'Sublot', 'Full Lot ID', 'Market Type', 'Crop', 'Variety', 'Volume Ordered', 'Acres', 'Wet Date', 'Budgeted Days to Harvest', 'Bed Size', 'Spacing', 'Budgeted Harvest Date', 'Ideal Stand / Acre', 'Budget Yield / Acre', 'Total Yield'];
       
-      const rows = plantings.map(p => [
+      const rows = plantings.map((p: Planting) => [
         p.customer || '', 
         p.region || '', 
         p.ranch || '', 
@@ -230,9 +423,10 @@ const csvService = {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('CSV export failed:', error);
-      alert(`CSV export failed: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`CSV export failed: ${errorMessage}`);
     }
   }
 };
@@ -243,7 +437,7 @@ const csvService = {
 
 const persistenceService = {
   // Save data to localStorage with error handling
-  save: (key: string, data: any) => {
+  save: (key: string, data: any): boolean => {
     try {
       // Check if we're in a browser environment
       if (typeof window === 'undefined') return false;
@@ -257,7 +451,7 @@ const persistenceService = {
   },
 
   // Load data from localStorage with validation
-  load: (key: string, defaultValue: any = null) => {
+  load: (key: string, defaultValue: any): any => {
     try {
       // Check if we're in a browser environment
       if (typeof window === 'undefined') return defaultValue;
@@ -274,7 +468,7 @@ const persistenceService = {
   },
 
   // Clear specific data
-  clear: (key: string) => {
+  clear: (key: string): boolean => {
     try {
       // Check if we're in a browser environment
       if (typeof window === 'undefined') return false;
@@ -288,7 +482,7 @@ const persistenceService = {
   },
 
   // Clear all app data
-  clearAll: () => {
+  clearAll: (): void => {
     const keys = ['cropPlanning_orders', 'cropPlanning_commodities', 'cropPlanning_landStructure', 
                   'cropPlanning_plantings', 'cropPlanning_activeTab'];
     keys.forEach(key => persistenceService.clear(key));
@@ -299,9 +493,16 @@ const persistenceService = {
 // CUSTOM HOOKS - State Management Layer  
 // =============================================================================
 
-const useOrders = () => {
+interface UseOrdersReturn {
+  orders: Order[];
+  addOrder: (orderData: Omit<Order, 'id'>) => void;
+  updateOrder: (id: number, orderData: Omit<Order, 'id'>) => void;
+  deleteOrder: (id: number) => void;
+}
+
+const useOrders = (): UseOrdersReturn => {
   // Default orders data
-  const defaultOrders = [
+  const defaultOrders: Order[] = [
     { id: 1, customer: 'Fresh Farms Co', commodity: 'Romaine', volume: 10000, marketType: 'Fresh Cut', deliveryDate: '2025-09-15', isWeekly: false },
     { id: 2, customer: 'Valley Produce', commodity: 'Carrots', volume: 50000, marketType: 'Bulk', deliveryDate: '2025-10-01', isWeekly: true },
     { id: 3, customer: 'Premium Greens', commodity: 'Iceberg', volume: 7500, marketType: 'Fresh Cut', deliveryDate: '2025-08-20', isWeekly: false },
@@ -311,7 +512,7 @@ const useOrders = () => {
   ];
 
   // Initialize with saved data or default
-  const [orders, setOrders] = useState(() => {
+  const [orders, setOrders] = useState<Order[]>(() => {
     return persistenceService.load('cropPlanning_orders', defaultOrders);
   });
 
@@ -320,31 +521,38 @@ const useOrders = () => {
     persistenceService.save('cropPlanning_orders', orders);
   }, [orders]);
 
-  const addOrder = (orderData) => {
-    const order = {
+  const addOrder = (orderData: Omit<Order, 'id'>): void => {
+    const order: Order = {
       id: Date.now(),
       ...orderData,
-      volume: parseFloat(orderData.volume)
+      volume: parseFloat(orderData.volume.toString())
     };
     setOrders(prev => [...prev, order]);
   };
 
-  const updateOrder = (id, orderData) => {
-    setOrders(prev => prev.map(order => 
-      order.id === id ? { ...orderData, id, volume: parseFloat(orderData.volume) } : order
+  const updateOrder = (id: number, orderData: Omit<Order, 'id'>): void => {
+    setOrders(prev => prev.map((order: Order) => 
+      order.id === id ? { ...orderData, id, volume: parseFloat(orderData.volume.toString()) } : order
     ));
   };
 
-  const deleteOrder = (id) => {
-    setOrders(prev => prev.filter(order => order.id !== id));
+  const deleteOrder = (id: number): void => {
+    setOrders(prev => prev.filter((order: Order) => order.id !== id));
   };
 
   return { orders, addOrder, updateOrder, deleteOrder };
 };
 
-const useCommodities = () => {
+interface UseCommoditiesReturn {
+  commodities: Commodity[];
+  addVariety: (commodityId: number, varietyData: Omit<Variety, 'id'>) => void;
+  updateVariety: (commodityId: number, varietyId: number, varietyData: Omit<Variety, 'id'>) => void;
+  deleteVariety: (commodityId: number, varietyId: number) => void;
+}
+
+const useCommodities = (): UseCommoditiesReturn => {
   // Default commodities data
-  const defaultCommodities = [
+  const defaultCommodities: Commodity[] = [
     {
       id: 1,
       name: 'Romaine',
@@ -388,7 +596,7 @@ const useCommodities = () => {
   ];
 
   // Initialize with saved data or default
-  const [commodities, setCommodities] = useState(() => {
+  const [commodities, setCommodities] = useState<Commodity[]>(() => {
     return persistenceService.load('cropPlanning_commodities', defaultCommodities);
   });
 
@@ -397,21 +605,21 @@ const useCommodities = () => {
     persistenceService.save('cropPlanning_commodities', commodities);
   }, [commodities]);
 
-  const addVariety = (commodityId, varietyData) => {
-    const varietyWithId = { ...varietyData, id: Date.now() };
-    setCommodities(prev => prev.map(c => 
+  const addVariety = (commodityId: number, varietyData: Omit<Variety, 'id'>): void => {
+    const varietyWithId: Variety = { ...varietyData, id: Date.now() };
+    setCommodities(prev => prev.map((c: Commodity) => 
       c.id === commodityId 
         ? { ...c, varieties: [...c.varieties, varietyWithId] }
         : c
     ));
   };
 
-  const updateVariety = (commodityId, varietyId, varietyData) => {
-    setCommodities(prev => prev.map(c => 
+  const updateVariety = (commodityId: number, varietyId: number, varietyData: Omit<Variety, 'id'>): void => {
+    setCommodities(prev => prev.map((c: Commodity) => 
       c.id === commodityId 
         ? { 
             ...c, 
-            varieties: c.varieties.map(v => 
+            varieties: c.varieties.map((v: Variety) => 
               v.id === varietyId ? { ...varietyData, id: varietyId } : v
             )
           }
@@ -419,10 +627,10 @@ const useCommodities = () => {
     ));
   };
 
-  const deleteVariety = (commodityId, varietyId) => {
-    setCommodities(prev => prev.map(c => 
+  const deleteVariety = (commodityId: number, varietyId: number): void => {
+    setCommodities(prev => prev.map((c: Commodity) => 
       c.id === commodityId 
-        ? { ...c, varieties: c.varieties.filter(v => v.id !== varietyId) }
+        ? { ...c, varieties: c.varieties.filter((v: Variety) => v.id !== varietyId) }
         : c
     ));
   };
@@ -430,9 +638,15 @@ const useCommodities = () => {
   return { commodities, addVariety, updateVariety, deleteVariety };
 };
 
-const useLandManagement = () => {
+interface UseLandManagementReturn {
+  landStructure: LandStructure;
+  setLandStructure: React.Dispatch<SetStateAction<LandStructure>>;
+  findLot: (regionId: number, ranchId: number, lotId: number) => { region?: Region; ranch?: Ranch; lot?: Lot };
+}
+
+const useLandManagement = (): UseLandManagementReturn => {
   // Default land structure data
-  const defaultLandStructure = [
+  const defaultLandStructure: LandStructure = [
     {
       id: 1, region: 'Salinas',
       ranches: [
@@ -468,7 +682,7 @@ const useLandManagement = () => {
   ];
 
   // Initialize with saved data or default
-  const [landStructure, setLandStructure] = useState(() => {
+  const [landStructure, setLandStructure] = useState<LandStructure>(() => {
     return persistenceService.load('cropPlanning_landStructure', defaultLandStructure);
   });
 
@@ -477,10 +691,10 @@ const useLandManagement = () => {
     persistenceService.save('cropPlanning_landStructure', landStructure);
   }, [landStructure]);
 
-  const findLot = (regionId, ranchId, lotId) => {
-    const region = landStructure.find(r => r.id === regionId);
-    const ranch = region?.ranches.find(r => r.id === ranchId);
-    const lot = ranch?.lots.find(l => l.id === lotId);
+  const findLot = (regionId: number, ranchId: number, lotId: number): { region?: Region; ranch?: Ranch; lot?: Lot } => {
+    const region = landStructure.find((r: Region) => r.id === regionId);
+    const ranch = region?.ranches.find((r: Ranch) => r.id === ranchId);
+    const lot = ranch?.lots.find((l: Lot) => l.id === lotId);
     return { region, ranch, lot };
   };
 
@@ -491,9 +705,21 @@ const useLandManagement = () => {
   };
 };
 
-const usePlantings = (orders, commodities, landStructure) => {
+interface UsePlantingsReturn {
+  plantings: Planting[];
+  generatePlantings: () => void;
+  assignPlantingToLot: (
+    plantingId: number, 
+    region: Region, 
+    ranch: Ranch, 
+    lot: Lot, 
+    onSplitNotification?: (notification: SplitNotification) => void
+  ) => AssignmentResult;
+}
+
+const usePlantings = (orders: Order[], commodities: Commodity[], landStructure: LandStructure): UsePlantingsReturn => {
   // Initialize with saved data or empty array
-  const [plantings, setPlantings] = useState(() => {
+  const [plantings, setPlantings] = useState<Planting[]>(() => {
     return persistenceService.load('cropPlanning_plantings', []);
   });
 
@@ -502,13 +728,23 @@ const usePlantings = (orders, commodities, landStructure) => {
     persistenceService.save('cropPlanning_plantings', plantings);
   }, [plantings]);
 
-  const generatePlantings = () => {
+  const generatePlantings = (): void => {
     const newPlantings = plantingService.generateFromOrders(orders, commodities);
     setPlantings(newPlantings);
   };
 
-  const assignPlantingToLot = (plantingId, region, ranch, lot, onSplitNotification) => {
-    const planting = plantings.find(p => p.id === plantingId);
+  const assignPlantingToLot = (
+    plantingId: number, 
+    region: Region, 
+    ranch: Ranch, 
+    lot: Lot, 
+    onSplitNotification?: (notification: SplitNotification) => void
+  ): AssignmentResult => {
+    const planting = plantings.find((p: Planting) => p.id === plantingId);
+    
+    if (!planting) {
+      return { success: false, type: 'no_capacity', message: 'Planting not found' };
+    }
     
     const fitCheck = capacityService.canFitInLot(
       planting.acres, 
@@ -523,7 +759,7 @@ const usePlantings = (orders, commodities, landStructure) => {
       const sublot = capacityService.getNextSublotDesignation(region.id, ranch.id, lot.id, plantings);
       const updatedPlanting = plantingService.assignToLot(planting, region, ranch, lot, sublot);
       
-      setPlantings(prev => prev.map(p => 
+      setPlantings(prev => prev.map((p: Planting) => 
         p.id === plantingId ? updatedPlanting : p
       ));
       
@@ -539,7 +775,7 @@ const usePlantings = (orders, commodities, landStructure) => {
       const assignedWithLocation = plantingService.assignToLot(assignedPortion, region, ranch, lot, sublot);
       
       setPlantings(prev => [
-        ...prev.filter(p => p.id !== plantingId),
+        ...prev.filter((p: Planting) => p.id !== plantingId),
         assignedWithLocation,
         unassignedRemainder
       ]);
@@ -573,34 +809,52 @@ const usePlantings = (orders, commodities, landStructure) => {
   return { plantings, generatePlantings, assignPlantingToLot };
 };
 
-const useSplitNotifications = () => {
-  const [splitNotification, setSplitNotification] = useState(null);
+interface UseSplitNotificationsReturn {
+  splitNotification: SplitNotification | null;
+  showSplitNotification: (notification: SplitNotification) => void;
+  clearSplitNotification: () => void;
+}
 
-  const showSplitNotification = (notification) => {
+const useSplitNotifications = (): UseSplitNotificationsReturn => {
+  const [splitNotification, setSplitNotification] = useState<SplitNotification | null>(null);
+
+  const showSplitNotification = (notification: SplitNotification): void => {
     setSplitNotification(notification);
   };
 
-  const clearSplitNotification = () => {
+  const clearSplitNotification = (): void => {
     setSplitNotification(null);
   };
 
   return { splitNotification, showSplitNotification, clearSplitNotification };
 };
 
-const useDragAndDrop = (assignPlantingToLot, findLot, landStructure, plantings, showSplitNotification) => {
-  const [draggedPlanting, setDraggedPlanting] = useState(null);
+const useDragAndDrop = (
+  assignPlantingToLot: (
+    plantingId: number, 
+    region: Region, 
+    ranch: Ranch, 
+    lot: Lot, 
+    onSplitNotification?: (notification: SplitNotification) => void
+  ) => AssignmentResult,
+  findLot: (regionId: number, ranchId: number, lotId: number) => { region?: Region; ranch?: Ranch; lot?: Lot },
+  landStructure: LandStructure,
+  plantings: Planting[],
+  showSplitNotification: (notification: SplitNotification) => void
+): DragHandlers => {
+  const [draggedPlanting, setDraggedPlanting] = useState<Planting | null>(null);
 
-  const handleDragStart = (e, planting) => {
+  const handleDragStart = (e: React.DragEvent, planting: Planting): void => {
     setDraggedPlanting(planting);
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleDragOver = (e) => {
+  const handleDragOver = (e: React.DragEvent): void => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDrop = (e, regionId, ranchId, lotId) => {
+  const handleDrop = (e: React.DragEvent, regionId: number, ranchId: number, lotId: number): void => {
     e.preventDefault();
     if (draggedPlanting) {
       const { region, ranch, lot } = findLot(regionId, ranchId, lotId);
@@ -628,7 +882,7 @@ const useDragAndDrop = (assignPlantingToLot, findLot, landStructure, plantings, 
 // SHARED COMPONENTS - Reusable UI Layer
 // =============================================================================
 
-const Modal = ({ isOpen, onClose, title, children, actions }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, actions }) => {
   if (!isOpen) return null;
 
   return (
@@ -642,7 +896,12 @@ const Modal = ({ isOpen, onClose, title, children, actions }) => {
   );
 };
 
-const SplitNotificationModal = ({ notification, onClose }) => {
+interface SplitNotificationModalProps {
+  notification: SplitNotification | null;
+  onClose: () => void;
+}
+
+const SplitNotificationModal: React.FC<SplitNotificationModalProps> = ({ notification, onClose }) => {
   if (!notification) return null;
 
   const { originalPlanting, assignedPortion, unassignedRemainder, lot } = notification;
@@ -712,17 +971,18 @@ const SplitNotificationModal = ({ notification, onClose }) => {
   );
 };
 
-const Button = ({ variant = 'primary', size = 'md', children, className = '', ...props }) => {
+const Button: React.FC<ButtonProps> = ({ variant = 'primary', size = 'md', children, className = '', ...props }) => {
   const baseClasses = 'inline-flex items-center gap-2 rounded-lg font-medium transition-colors';
-  const variantClasses = {
+  const variantClasses: Record<string, string> = {
     primary: 'text-white hover:bg-opacity-90',
     secondary: 'bg-blue-600 text-white hover:bg-blue-700',
     outline: 'border border-gray-300 text-gray-700 hover:bg-gray-50',
     danger: 'text-red-600 hover:text-red-900',
     success: 'bg-green-600 text-white hover:bg-green-700',
-    warning: 'bg-yellow-600 text-white hover:bg-yellow-700'
+    warning: 'bg-yellow-600 text-white hover:bg-yellow-700',
+    destructive: 'bg-red-600 text-white hover:bg-red-700'
   };
-  const sizeClasses = {
+  const sizeClasses: Record<string, string> = {
     sm: 'px-3 py-1 text-sm',
     md: 'px-4 py-2',
     lg: 'px-6 py-3 text-lg'
@@ -732,7 +992,7 @@ const Button = ({ variant = 'primary', size = 'md', children, className = '', ..
 
   return (
     <button 
-      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      className={`${baseClasses} ${variantClasses[variant] || variantClasses.primary} ${sizeClasses[size] || sizeClasses.md} ${className}`}
       style={style}
       {...props}
     >
@@ -741,12 +1001,12 @@ const Button = ({ variant = 'primary', size = 'md', children, className = '', ..
   );
 };
 
-const DataTable = ({ headers, data, renderRow }) => (
+const DataTable: React.FC<DataTableProps> = ({ headers, data, renderRow }) => (
   <div className="bg-white shadow-sm rounded-lg overflow-hidden">
     <table className="min-w-full divide-y divide-gray-200">
       <thead className="bg-gray-50">
         <tr>
-          {headers.map((header, index) => (
+          {headers.map((header: string, index: number) => (
             <th key={index} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               {header}
             </th>
@@ -754,13 +1014,13 @@ const DataTable = ({ headers, data, renderRow }) => (
         </tr>
       </thead>
       <tbody className="bg-white divide-y divide-gray-200">
-        {data.map((item, index) => renderRow(item, index))}
+        {data.map((item: any, index: number) => renderRow(item, index))}
       </tbody>
     </table>
   </div>
 );
 
-const Navigation = ({ activeTab, onTabChange }) => {
+const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }) => {
   const tabs = [
     { id: 'orders', name: 'Orders', icon: '📋' },
     { id: 'commodities', name: 'Commodities & Varieties', icon: '🌱' },
@@ -799,14 +1059,22 @@ const Navigation = ({ activeTab, onTabChange }) => {
 // FEATURE COMPONENTS - Domain-Specific Features
 // =============================================================================
 
-const OrdersFeature = ({ orders, onAddOrder, onUpdateOrder, onDeleteOrder, commodities }) => {
+interface OrdersFeatureProps {
+  orders: Order[];
+  onAddOrder: (orderData: Omit<Order, 'id'>) => void;
+  onUpdateOrder: (id: number, orderData: Omit<Order, 'id'>) => void;
+  onDeleteOrder: (id: number) => void;
+  commodities: Commodity[];
+}
+
+const OrdersFeature: React.FC<OrdersFeatureProps> = ({ orders, onAddOrder, onUpdateOrder, onDeleteOrder, commodities }) => {
   const [showForm, setShowForm] = useState(false);
-  const [editingOrder, setEditingOrder] = useState(null);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [formData, setFormData] = useState({
-    customer: '', commodity: '', volume: '', marketType: 'Fresh Cut', deliveryDate: '', isWeekly: false
+    customer: '', commodity: '', volume: '', marketType: 'Fresh Cut' as 'Fresh Cut' | 'Bulk', deliveryDate: '', isWeekly: false
   });
 
-  const handleEdit = (order) => {
+  const handleEdit = (order: Order): void => {
     setEditingOrder(order);
     setFormData({
       customer: order.customer,
@@ -821,10 +1089,14 @@ const OrdersFeature = ({ orders, onAddOrder, onUpdateOrder, onDeleteOrder, commo
 
   const handleSubmit = () => {
     if (formData.customer && formData.commodity && formData.volume && formData.deliveryDate) {
+      const orderData = {
+        ...formData,
+        volume: parseFloat(formData.volume)
+      };
       if (editingOrder) {
-        onUpdateOrder(editingOrder.id, formData);
+        onUpdateOrder(editingOrder.id, orderData);
       } else {
-        onAddOrder(formData);
+        onAddOrder(orderData);
       }
       setFormData({ customer: '', commodity: '', volume: '', marketType: 'Fresh Cut', deliveryDate: '', isWeekly: false });
       setEditingOrder(null);
@@ -834,7 +1106,7 @@ const OrdersFeature = ({ orders, onAddOrder, onUpdateOrder, onDeleteOrder, commo
 
   const headers = ['Customer', 'Commodity', 'Market Type', 'Volume', 'Delivery Date', 'Type', 'Actions'];
 
-  const renderRow = (order) => (
+  const renderRow = (order: Order) => (
     <tr key={order.id}>
       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.customer}</td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.commodity}</td>
@@ -906,13 +1178,13 @@ const OrdersFeature = ({ orders, onAddOrder, onUpdateOrder, onDeleteOrder, commo
           className="w-full p-2 border border-gray-300 rounded-lg"
         >
           <option value="">Select Commodity</option>
-          {commodities.map(c => (
+          {commodities.map((c: Commodity) => (
             <option key={c.id} value={c.name}>{c.name}</option>
           ))}
         </select>
         <select
           value={formData.marketType}
-          onChange={(e) => setFormData({...formData, marketType: e.target.value})}
+          onChange={(e) => setFormData({...formData, marketType: e.target.value as 'Fresh Cut' | 'Bulk'})}
           className="w-full p-2 border border-gray-300 rounded-lg"
         >
           <option value="Fresh Cut">Fresh Cut</option>
@@ -950,20 +1222,27 @@ const OrdersFeature = ({ orders, onAddOrder, onUpdateOrder, onDeleteOrder, commo
   );
 };
 
-const CommoditiesFeature = ({ commodities, onAddVariety, onUpdateVariety, onDeleteVariety }) => {
+interface CommoditiesFeatureProps {
+  commodities: Commodity[];
+  onAddVariety: (commodityId: number, varietyData: Omit<Variety, 'id'>) => void;
+  onUpdateVariety: (commodityId: number, varietyId: number, varietyData: Omit<Variety, 'id'>) => void;
+  onDeleteVariety: (commodityId: number, varietyId: number) => void;
+}
+
+const CommoditiesFeature: React.FC<CommoditiesFeatureProps> = ({ commodities, onAddVariety, onUpdateVariety, onDeleteVariety }) => {
   const [showForm, setShowForm] = useState(false);
-  const [editingVariety, setEditingVariety] = useState(null);
-  const [editingCommodityId, setEditingCommodityId] = useState(null);
+  const [editingVariety, setEditingVariety] = useState<Variety | null>(null);
+  const [editingCommodityId, setEditingCommodityId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     name: '', growingWindow: { start: 'Jan', end: 'Dec' }, daysToHarvest: 60, bedSize: '38-2', spacing: '12in',
-    plantType: 'transplant', idealStand: 30000, marketTypes: ['Fresh Cut'],
+    plantType: 'transplant' as 'transplant' | 'direct seed', idealStand: 30000, marketTypes: ['Fresh Cut'] as ('Fresh Cut' | 'Bulk')[],
     budgetYieldPerAcre: { 'Fresh Cut': 1000, 'Bulk': 0 },
     preferences: { Jan: 0, Feb: 0, Mar: 0, Apr: 0, May: 0, Jun: 0, Jul: 0, Aug: 0, Sep: 0, Oct: 0, Nov: 0, Dec: 0 }
   });
 
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-  const handleAddVariety = (commodityId) => {
+  const handleAddVariety = (commodityId: number): void => {
     setEditingCommodityId(commodityId);
     setEditingVariety(null);
     setFormData({
@@ -975,7 +1254,7 @@ const CommoditiesFeature = ({ commodities, onAddVariety, onUpdateVariety, onDele
     setShowForm(true);
   };
 
-  const handleEditVariety = (commodityId, variety) => {
+  const handleEditVariety = (commodityId: number, variety: Variety): void => {
     setEditingCommodityId(commodityId);
     setEditingVariety(variety);
     setFormData({ ...variety });
@@ -1000,7 +1279,7 @@ const CommoditiesFeature = ({ commodities, onAddVariety, onUpdateVariety, onDele
       <h2 className="text-xl font-semibold text-gray-900">Commodities & Varieties</h2>
 
       <div className="space-y-4">
-        {commodities.map(commodity => (
+        {commodities.map((commodity: Commodity) => (
           <div key={commodity.id} className="bg-white shadow-sm rounded-lg p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900">{commodity.name}</h3>
@@ -1020,7 +1299,7 @@ const CommoditiesFeature = ({ commodities, onAddVariety, onUpdateVariety, onDele
                       {variety.plantType}
                     </span>
                     <div className="flex gap-1">
-                      {variety.marketTypes.map(marketType => (
+                      {variety.marketTypes.map((marketType: 'Fresh Cut' | 'Bulk') => (
                         <span key={marketType} className={`px-2 py-1 text-xs rounded-full ${
                           marketType === 'Fresh Cut' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
                         }`}>
@@ -1248,7 +1527,13 @@ const CommoditiesFeature = ({ commodities, onAddVariety, onUpdateVariety, onDele
   );
 };
 
-const LandFeature = ({ landStructure, plantings, dragHandlers }) => {
+interface LandFeatureProps {
+  landStructure: LandStructure;
+  plantings: Planting[];
+  dragHandlers: DragHandlers;
+}
+
+const LandFeature: React.FC<LandFeatureProps> = ({ landStructure, plantings, dragHandlers }) => {
   const { handleDragStart, handleDragOver, handleDrop } = dragHandlers;
 
   return (
@@ -1262,15 +1547,15 @@ const LandFeature = ({ landStructure, plantings, dragHandlers }) => {
         <div className="bg-white shadow-sm rounded-lg p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Land Structure</h3>
           <div className="space-y-4">
-            {landStructure.map(region => (
+            {landStructure.map((region: Region) => (
               <div key={region.id} className="border border-gray-200 rounded-lg p-4">
                 <h4 className="font-medium text-gray-800 mb-3">📍 {region.region} Region</h4>
                 
-                {region.ranches.map(ranch => (
+                {region.ranches.map((ranch: Ranch) => (
                   <div key={ranch.id} className="ml-4 mb-3">
                     <h5 className="font-medium text-gray-700 mb-2">🏠 {ranch.name}</h5>
                     
-                    {ranch.lots.map(lot => (
+                    {ranch.lots.map((lot: Lot) => (
                       <div
                         key={lot.id}
                         className="ml-4 p-3 mb-2 border border-gray-300 rounded-lg"
@@ -1294,8 +1579,8 @@ const LandFeature = ({ landStructure, plantings, dragHandlers }) => {
                         </div>
                         
                         {plantings
-                          .filter(p => p.assigned && p.lot === lot.number)
-                          .map(planting => (
+                          .filter((p: Planting) => p.assigned && p.lot === lot.number)
+                          .map((planting: Planting) => (
                             <div key={planting.id} className="mt-2 p-2 rounded text-sm text-white" style={{ backgroundColor: '#0f3e62' }}>
                               <div className="font-medium">{planting.crop} - {planting.variety}</div>
                               <div className="opacity-90">{planting.acres} acres • {planting.wetDate}</div>
@@ -1314,8 +1599,8 @@ const LandFeature = ({ landStructure, plantings, dragHandlers }) => {
           <h3 className="text-lg font-medium text-gray-900 mb-4">Unassigned Plantings</h3>
           <div className="space-y-2">
             {plantings
-              .filter(p => !p.assigned)
-              .map(planting => (
+              .filter((p: Planting) => !p.assigned)
+              .map((planting: Planting) => (
                 <div
                   key={planting.id}
                   draggable
@@ -1337,14 +1622,19 @@ const LandFeature = ({ landStructure, plantings, dragHandlers }) => {
   );
 };
 
-const GanttFeature = ({ plantings, landStructure }) => {
-  const [timeRange, setTimeRange] = useState('3months');
+interface GanttFeatureProps {
+  plantings: Planting[];
+  landStructure: LandStructure;
+}
+
+const GanttFeature: React.FC<GanttFeatureProps> = ({ plantings, landStructure }) => {
+  const [timeRange, setTimeRange] = useState<'1month' | '3months' | '6months' | '1year'>('3months');
   const [selectedLots, setSelectedLots] = useState(new Set());
 
   // Calculate date range for display
-  const getDateRange = () => {
+  const getDateRange = (): TimeRange => {
     const now = new Date();
-    const ranges = {
+    const ranges: Record<string, TimeRange> = {
       '1month': { start: new Date(now.getFullYear(), now.getMonth(), 1), end: new Date(now.getFullYear(), now.getMonth() + 1, 0) },
       '3months': { start: new Date(now.getFullYear(), now.getMonth(), 1), end: new Date(now.getFullYear(), now.getMonth() + 3, 0) },
       '6months': { start: new Date(now.getFullYear(), now.getMonth(), 1), end: new Date(now.getFullYear(), now.getMonth() + 6, 0) },
@@ -1354,7 +1644,7 @@ const GanttFeature = ({ plantings, landStructure }) => {
   };
 
   const dateRange = getDateRange();
-  const totalDays = Math.ceil((dateRange.end - dateRange.start) / (1000 * 60 * 60 * 24));
+  const totalDays = Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24));
 
   // Generate date markers for header
   const generateDateMarkers = () => {
@@ -1376,14 +1666,14 @@ const GanttFeature = ({ plantings, landStructure }) => {
   const dateMarkers = generateDateMarkers();
 
   // Get all unique lots with assigned plantings
-  const getAllLots = () => {
-    const lots = [];
-    const assignedPlantings = plantings.filter(p => p.assigned);
+  const getAllLots = (): LotInfo[] => {
+    const lots: LotInfo[] = [];
+    const assignedPlantings = plantings.filter((p: Planting) => p.assigned);
     
-    landStructure.forEach(region => {
-      region.ranches.forEach(ranch => {
-        ranch.lots.forEach(lot => {
-          const lotPlantings = assignedPlantings.filter(p => 
+    landStructure.forEach((region: Region) => {
+      region.ranches.forEach((ranch: Ranch) => {
+        ranch.lots.forEach((lot: Lot) => {
+          const lotPlantings = assignedPlantings.filter((p: Planting) => 
             p.region === region.region && p.ranch === ranch.name && p.lot === lot.number
           );
           
@@ -1408,19 +1698,19 @@ const GanttFeature = ({ plantings, landStructure }) => {
   const allLots = getAllLots();
 
   // Calculate position and width for planting bars
-  const getPlantingBarStyle = (planting) => {
+  const getPlantingBarStyle = (planting: Planting) => {
     const startDate = new Date(planting.wetDate);
     const endDate = new Date(planting.budgetedHarvestDate);
     
     // Calculate position as percentage of total range
-    const startDays = Math.max(0, (startDate - dateRange.start) / (1000 * 60 * 60 * 24));
-    const endDays = Math.min(totalDays, (endDate - dateRange.start) / (1000 * 60 * 60 * 24));
+    const startDays = Math.max(0, (startDate.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24));
+    const endDays = Math.min(totalDays, (endDate.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24));
     
     const leftPercent = (startDays / totalDays) * 100;
     const widthPercent = ((endDays - startDays) / totalDays) * 100;
     
     // Color based on crop
-    const cropColors = {
+    const cropColors: Record<string, string> = {
       'Romaine': '#10b981',
       'Iceberg': '#3b82f6', 
       'Carrots': '#f59e0b',
@@ -1435,7 +1725,7 @@ const GanttFeature = ({ plantings, landStructure }) => {
     };
   };
 
-  const toggleLotFilter = (lotId) => {
+  const toggleLotFilter = (lotId: string): void => {
     const newSelected = new Set(selectedLots);
     if (newSelected.has(lotId)) {
       newSelected.delete(lotId);
@@ -1466,7 +1756,7 @@ const GanttFeature = ({ plantings, landStructure }) => {
         <div className="flex gap-4 items-center">
           <select 
             value={timeRange}
-            onChange={(e) => setTimeRange(e.target.value)}
+            onChange={(e) => setTimeRange(e.target.value as '1month' | '3months' | '6months' | '1year')}
             className="p-2 border border-gray-300 rounded-lg text-sm"
           >
             <option value="1month">1 Month</option>
@@ -1502,11 +1792,11 @@ const GanttFeature = ({ plantings, landStructure }) => {
         <h3 className="text-sm font-medium text-gray-900 mb-2">Crop Legend</h3>
         <div className="flex flex-wrap gap-4">
           {['Romaine', 'Iceberg', 'Carrots', 'Broccoli', 'Cauliflower'].map(crop => {
-            const cropColors = {
+            const cropColors: Record<string, string> = {
               'Romaine': '#10b981', 'Iceberg': '#3b82f6', 'Carrots': '#f59e0b',
               'Broccoli': '#8b5cf6', 'Cauliflower': '#ef4444'
             };
-            const count = plantings.filter(p => p.assigned && p.crop === crop).length;
+            const count = plantings.filter((p: Planting) => p.assigned && p.crop === crop).length;
             return (
               <div key={crop} className="flex items-center gap-2">
                 <div 
@@ -1557,7 +1847,7 @@ const GanttFeature = ({ plantings, landStructure }) => {
                   {lot.acres} acres • {lot.plantings.length} plantings
                   {lot.plantings.length > 0 && (
                     <span className="ml-1 text-green-600">
-                      ({lot.plantings.reduce((acc, p) => acc + parseFloat(p.acres), 0).toFixed(1)} acres used)
+                      ({lot.plantings.reduce((acc: number, p: Planting) => acc + parseFloat(p.acres.toString()), 0).toFixed(1)} acres used)
                     </span>
                   )}
                 </div>
@@ -1565,7 +1855,7 @@ const GanttFeature = ({ plantings, landStructure }) => {
               
               {/* Timeline column */}
               <div className="flex-1 relative py-2" style={{ minHeight: '60px' }}>
-                {lot.plantings.map((planting, index) => {
+                {lot.plantings.map((planting: Planting, index: number) => {
                   const barStyle = getPlantingBarStyle(planting);
                   const isVisible = parseFloat(barStyle.left) < 100 && 
                                    (parseFloat(barStyle.left) + parseFloat(barStyle.width)) > 0;
@@ -1576,7 +1866,7 @@ const GanttFeature = ({ plantings, landStructure }) => {
                       className="absolute rounded text-white text-xs px-2 py-1 shadow-sm hover:shadow-md transition-all cursor-pointer hover:z-20 border border-opacity-30 border-white"
                       style={{
                         ...barStyle,
-                        top: `${index * 22 + 4}px`,
+                        top: `${(index * 22) + 4}px`,
                         height: '18px',
                         zIndex: 10
                       }}
@@ -1594,7 +1884,7 @@ const GanttFeature = ({ plantings, landStructure }) => {
                 {(() => {
                   const today = new Date();
                   if (today >= dateRange.start && today <= dateRange.end) {
-                    const todayPercent = ((today - dateRange.start) / (dateRange.end - dateRange.start)) * 100;
+                    const todayPercent = ((today.getTime() - dateRange.start.getTime()) / (dateRange.end.getTime() - dateRange.start.getTime())) * 100;
                     return (
                       <div
                         className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-30"
@@ -1647,7 +1937,7 @@ const GanttFeature = ({ plantings, landStructure }) => {
         </div>
         <div className="bg-white p-4 rounded-lg shadow-sm">
           <div className="text-2xl font-bold text-green-600">
-            {filteredLots.reduce((sum, lot) => sum + lot.plantings.reduce((acc, p) => acc + parseFloat(p.acres), 0), 0).toFixed(1)}
+            {filteredLots.reduce((sum: number, lot: LotInfo) => sum + lot.plantings.reduce((acc: number, p: Planting) => acc + parseFloat(p.acres.toString()), 0), 0).toFixed(1)}
           </div>
           <div className="text-sm text-gray-600">Total Acres</div>
         </div>
@@ -1657,7 +1947,7 @@ const GanttFeature = ({ plantings, landStructure }) => {
         </div>
         <div className="bg-white p-4 rounded-lg shadow-sm">
           <div className="text-2xl font-bold text-orange-600">
-            {[...new Set(filteredLots.flatMap(lot => lot.plantings.map(p => p.customer)))].length}
+            {[...new Set(filteredLots.flatMap((lot: LotInfo) => lot.plantings.map((p: Planting) => p.customer)))].length}
           </div>
           <div className="text-sm text-gray-600">Customers</div>
         </div>
@@ -1666,17 +1956,21 @@ const GanttFeature = ({ plantings, landStructure }) => {
   );
 };
 
-const PlanningFeature = ({ plantings }) => {
+interface PlanningFeatureProps {
+  plantings: Planting[];
+}
+
+const PlanningFeature: React.FC<PlanningFeatureProps> = ({ plantings }) => {
   const stats = {
     total: plantings.length,
-    assigned: plantings.filter(p => p.assigned).length,
-    totalAcres: plantings.reduce((sum, p) => sum + parseFloat(p.acres), 0).toFixed(1),
-    customers: [...new Set(plantings.map(p => p.customer))].length
+    assigned: plantings.filter((p: Planting) => p.assigned).length,
+    totalAcres: plantings.reduce((sum: number, p: Planting) => sum + parseFloat(p.acres.toString()), 0).toFixed(1),
+    customers: [...new Set(plantings.map((p: Planting) => p.customer))].length
   };
 
   const headers = ['Customer', 'Location', 'Crop & Variety', 'Acres', 'Plant Date', 'Harvest Date', 'Status'];
 
-  const renderRow = (planting) => (
+  const renderRow = (planting: Planting) => (
     <tr key={planting.id} className={planting.assigned ? 'bg-blue-50' : 'bg-yellow-50'}>
       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{planting.customer}</td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -1731,7 +2025,7 @@ const PlanningFeature = ({ plantings }) => {
 
 const DataManagementFeature = () => {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [lastBackup, setLastBackup] = useState(null);
+  const [lastBackup, setLastBackup] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
 
   // Set client-side flag after component mounts
@@ -1770,19 +2064,23 @@ const DataManagementFeature = () => {
       URL.revokeObjectURL(url);
 
       setLastBackup(new Date().toLocaleString());
-    } catch (error: any) {
-      alert('Export failed: ' + error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert('Export failed: ' + errorMessage);
     }
   };
 
-  const importData = (event: any) => {
-    const file = event.target.files[0];
+  const importData = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const data = JSON.parse(e.target.result);
+        const result = e.target?.result;
+        if (typeof result !== 'string') return;
+        
+        const data = JSON.parse(result);
         
         // Validate data structure
         if (!data.orders || !data.commodities || !data.landStructure) {
@@ -1800,8 +2098,9 @@ const DataManagementFeature = () => {
         }
 
         alert('Data imported successfully! Please refresh the page to see changes.');
-      } catch (error: any) {
-        alert('Import failed: ' + error.message);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        alert('Import failed: ' + errorMessage);
       }
     };
     reader.readAsText(file);
