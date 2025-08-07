@@ -241,6 +241,20 @@ interface LandPlanningViewProps {
   clearSplitNotification: () => void;
 }
 
+interface LandFeatureProps {
+  landStructure: Region[];
+  plantings: Planting[];
+  dragHandlers: any;
+  landManagement: any;
+  splitNotification: SplitNotification | null;
+  clearSplitNotification: () => void;
+  optimizeAllPlantings: () => void;
+  optimizationResults: OptimizationResults | null;
+  clearOptimizationResults: () => void;
+  isOptimizing?: boolean;
+  setIsOptimizing?: (value: boolean) => void;
+}
+
 // =============================================================================
 // SMART OPTIMIZATION ENGINE - NEW!
 // =============================================================================
@@ -533,9 +547,9 @@ const plantingService = {
             totalYield: Math.round(acresNeeded * yieldPerAcre),
             assigned: false,
             originalOrderId: originalOrderId,
-            parentPlantingId: null,
+            parentPlantingId: undefined,
             splitSequence: 1,
-            splitTimestamp: null
+            splitTimestamp: undefined
           };
           
           plantings.push(basePlanting);
@@ -900,7 +914,7 @@ const useCommodities = () => {
 
   const addVariety = (commodityId: number, varietyData: Partial<Variety>) => {
     const varietyWithId = { ...varietyData, id: Date.now() };
-    setCommodities(prev => prev.map(c => 
+    setCommodities((prev: Commodity[]) => prev.map((c: Commodity) => 
       c.id === commodityId 
         ? { ...c, varieties: [...c.varieties, varietyWithId] }
         : c
@@ -908,11 +922,11 @@ const useCommodities = () => {
   };
 
   const updateVariety = (commodityId: number, varietyId: number, varietyData: Partial<Variety>) => {
-    setCommodities(prev => prev.map(c => 
+    setCommodities((prev: Commodity[]) => prev.map((c: Commodity) => 
       c.id === commodityId 
         ? { 
             ...c, 
-            varieties: c.varieties.map(v => 
+            varieties: c.varieties.map((v: Variety) => 
               v.id === varietyId ? { ...varietyData, id: varietyId } : v
             )
           }
@@ -921,9 +935,9 @@ const useCommodities = () => {
   };
 
   const deleteVariety = (commodityId: number, varietyId: number) => {
-    setCommodities(prev => prev.map(c => 
+    setCommodities((prev: Commodity[]) => prev.map((c: Commodity) => 
       c.id === commodityId 
-        ? { ...c, varieties: c.varieties.filter(v => v.id !== varietyId) }
+        ? { ...c, varieties: c.varieties.filter((v: Variety) => v.id !== varietyId) }
         : c
     ));
   };
@@ -993,7 +1007,7 @@ const useLandManagement = () => {
       name: ranchData.name,
       lots: []
     };
-    setLandStructure(prev => prev.map(region =>
+    setLandStructure((prev: Region[]) => prev.map((region: Region) =>
       region.id === regionId
         ? { ...region, ranches: [...region.ranches, newRanch] }
         : region
@@ -1001,11 +1015,11 @@ const useLandManagement = () => {
   };
 
   const updateRanch = (regionId: number, ranchId: number, ranchData: Partial<Ranch>) => {
-    setLandStructure(prev => prev.map(region =>
+    setLandStructure((prev: Region[]) => prev.map((region: Region) =>
       region.id === regionId
         ? {
             ...region,
-            ranches: region.ranches.map(ranch =>
+            ranches: region.ranches.map((ranch: Ranch) =>
               ranch.id === ranchId ? { ...ranch, name: ranchData.name } : ranch
             )
           }
@@ -1014,9 +1028,9 @@ const useLandManagement = () => {
   };
 
   const deleteRanch = (regionId: number, ranchId: number) => {
-    setLandStructure(prev => prev.map(region =>
+    setLandStructure((prev: Region[]) => prev.map((region: Region) =>
       region.id === regionId
-        ? { ...region, ranches: region.ranches.filter(ranch => ranch.id !== ranchId) }
+        ? { ...region, ranches: region.ranches.filter((ranch: Ranch) => ranch.id !== ranchId) }
         : region
     ));
   };
@@ -1032,11 +1046,11 @@ const useLandManagement = () => {
       microclimate: lotData.microclimate
     };
     
-    setLandStructure(prev => prev.map(region =>
+    setLandStructure((prev: Region[]) => prev.map((region: Region) =>
       region.id === regionId
         ? {
             ...region,
-            ranches: region.ranches.map(ranch =>
+            ranches: region.ranches.map((ranch: Ranch) =>
               ranch.id === ranchId
                 ? { ...ranch, lots: [...ranch.lots, newLot] }
                 : ranch
@@ -1047,15 +1061,15 @@ const useLandManagement = () => {
   };
 
   const updateLot = (regionId: number, ranchId: number, lotId: number, lotData: Partial<Lot>) => {
-    setLandStructure(prev => prev.map(region =>
+    setLandStructure((prev: Region[]) => prev.map((region: Region) =>
       region.id === regionId
         ? {
             ...region,
-            ranches: region.ranches.map(ranch =>
+            ranches: region.ranches.map((ranch: Ranch) =>
               ranch.id === ranchId
                 ? {
                     ...ranch,
-                    lots: ranch.lots.map(lot =>
+                    lots: ranch.lots.map((lot: Lot) =>
                       lot.id === lotId
                         ? {
                             ...lot,
@@ -1077,13 +1091,13 @@ const useLandManagement = () => {
   };
 
   const deleteLot = (regionId: number, ranchId: number, lotId: number) => {
-    setLandStructure(prev => prev.map(region =>
+    setLandStructure((prev: Region[]) => prev.map((region: Region) =>
       region.id === regionId
         ? {
             ...region,
-            ranches: region.ranches.map(ranch =>
+            ranches: region.ranches.map((ranch: Ranch) =>
               ranch.id === ranchId
-                ? { ...ranch, lots: ranch.lots.filter(lot => lot.id !== lotId) }
+                ? { ...ranch, lots: ranch.lots.filter((lot: Lot) => lot.id !== lotId) }
                 : ranch
             )
           }
@@ -1092,9 +1106,9 @@ const useLandManagement = () => {
   };
 
   const findLot = (regionId: number, ranchId: number, lotId: number) => {
-    const region = landStructure.find(r => r.id === regionId);
-    const ranch = region?.ranches.find(r => r.id === ranchId);
-    const lot = ranch?.lots.find(l => l.id === lotId);
+    const region = landStructure.find((r: Region) => r.id === regionId);
+    const ranch = region?.ranches.find((r: Ranch) => r.id === ranchId);
+    const lot = ranch?.lots.find((l: Lot) => l.id === lotId);
     return { region, ranch, lot };
   };
 
@@ -1165,7 +1179,10 @@ const usePlantings = (orders: Order[], commodities: Commodity[], landStructure: 
   };
 
   const assignPlantingToLot = (plantingId: string, region: Region, ranch: Ranch, lot: Lot, onSplitNotification?: (notification: SplitNotification) => void) => {
-    const planting = plantings.find(p => p.id === plantingId);
+    const planting = plantings.find((p: Planting) => p.id === plantingId);
+    if (!planting) {
+      return { success: false, type: 'not_found' };
+    }
     
     const fitCheck = capacityService.canFitInLot(
       planting.acres, 
@@ -1180,7 +1197,7 @@ const usePlantings = (orders: Order[], commodities: Commodity[], landStructure: 
       const sublot = capacityService.getNextSublotDesignation(region.id, ranch.id, lot.id, plantings);
       const updatedPlanting = plantingService.assignToLot(planting, region, ranch, lot, sublot);
       
-      setPlantings(prev => prev.map(p => 
+      setPlantings((prev: Planting[]) => prev.map((p: Planting) => 
         p.id === plantingId ? updatedPlanting : p
       ));
       
@@ -1195,8 +1212,8 @@ const usePlantings = (orders: Order[], commodities: Commodity[], landStructure: 
       const sublot = capacityService.getNextSublotDesignation(region.id, ranch.id, lot.id, plantings);
       const assignedWithLocation = plantingService.assignToLot(assignedPortion, region, ranch, lot, sublot);
       
-      setPlantings(prev => [
-        ...prev.filter(p => p.id !== plantingId),
+      setPlantings((prev: Planting[]) => [
+        ...prev.filter((p: Planting) => p.id !== plantingId),
         assignedWithLocation,
         unassignedRemainder
       ]);
@@ -1420,6 +1437,8 @@ const Button: React.FC<ButtonProps> = ({ variant = 'primary', size = 'md', child
     <button 
       className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
       style={style}
+      onClick={onClick}
+      disabled={disabled}
       {...props}
     >
       {children}
@@ -1788,9 +1807,9 @@ const Navigation = ({ activeTab, onTabChange }) => {
 // FEATURE COMPONENTS - Domain-Specific Features  
 // =============================================================================
 
-const OrdersFeature = ({ orders, onAddOrder, onUpdateOrder, onDeleteOrder, commodities }) => {
+const OrdersFeature: React.FC<OrdersManagementProps> = ({ orders, onAddOrder, onUpdateOrder, onDeleteOrder, commodities }) => {
   const [showForm, setShowForm] = useState(false);
-  const [editingOrder, setEditingOrder] = useState(null);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [formData, setFormData] = useState({
     customer: '', commodity: '', volume: '', marketType: 'Fresh Cut', deliveryDate: '', isWeekly: false
   });
@@ -1811,9 +1830,9 @@ const OrdersFeature = ({ orders, onAddOrder, onUpdateOrder, onDeleteOrder, commo
   const handleSubmit = () => {
     if (formData.customer && formData.commodity && formData.volume && formData.deliveryDate) {
       if (editingOrder) {
-        onUpdateOrder(editingOrder.id, formData);
+        onUpdateOrder(editingOrder.id, { ...formData, volume: parseFloat(formData.volume) });
       } else {
-        onAddOrder(formData);
+        onAddOrder({ ...formData, volume: parseFloat(formData.volume) });
       }
       setFormData({ customer: '', commodity: '', volume: '', marketType: 'Fresh Cut', deliveryDate: '', isWeekly: false });
       setEditingOrder(null);
@@ -1887,12 +1906,12 @@ const OrdersFeature = ({ orders, onAddOrder, onUpdateOrder, onDeleteOrder, commo
           placeholder="Customer Name"
           value={formData.customer}
           onChange={(e) => setFormData({...formData, customer: e.target.value})}
-          className="w-full p-2 border border-gray-300 rounded-lg"
+          className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
         />
         <select
           value={formData.commodity}
           onChange={(e) => setFormData({...formData, commodity: e.target.value})}
-          className="w-full p-2 border border-gray-300 rounded-lg"
+          className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
         >
           <option value="">Select Commodity</option>
           {commodities.map(c => (
@@ -1902,7 +1921,7 @@ const OrdersFeature = ({ orders, onAddOrder, onUpdateOrder, onDeleteOrder, commo
         <select
           value={formData.marketType}
           onChange={(e) => setFormData({...formData, marketType: e.target.value})}
-          className="w-full p-2 border border-gray-300 rounded-lg"
+          className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
         >
           <option value="Fresh Cut">Fresh Cut</option>
           <option value="Bulk">Bulk</option>
@@ -1913,7 +1932,7 @@ const OrdersFeature = ({ orders, onAddOrder, onUpdateOrder, onDeleteOrder, commo
             placeholder={`Volume (${formData.marketType === 'Fresh Cut' ? 'cartons' : 'lbs'})`}
             value={formData.volume}
             onChange={(e) => setFormData({...formData, volume: e.target.value})}
-            className="flex-1 p-2 border border-gray-300 rounded-lg"
+            className="flex-1 p-2 border border-gray-300 rounded-lg text-gray-900"
           />
           <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg text-sm text-gray-600">
             {formData.marketType === 'Fresh Cut' ? 'cartons' : 'lbs'}
@@ -1923,7 +1942,7 @@ const OrdersFeature = ({ orders, onAddOrder, onUpdateOrder, onDeleteOrder, commo
           type="date"
           value={formData.deliveryDate}
           onChange={(e) => setFormData({...formData, deliveryDate: e.target.value})}
-          className="w-full p-2 border border-gray-300 rounded-lg"
+          className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
         />
         <label className="flex items-center space-x-2">
           <input
@@ -1939,10 +1958,10 @@ const OrdersFeature = ({ orders, onAddOrder, onUpdateOrder, onDeleteOrder, commo
   );
 };
 
-const CommoditiesFeature = ({ commodities, onAddVariety, onUpdateVariety, onDeleteVariety }) => {
+const CommoditiesFeature: React.FC<CommoditiesManagementProps> = ({ commodities, onAddVariety, onUpdateVariety, onDeleteVariety }) => {
   const [showForm, setShowForm] = useState(false);
-  const [editingVariety, setEditingVariety] = useState(null);
-  const [editingCommodityId, setEditingCommodityId] = useState(null);
+  const [editingVariety, setEditingVariety] = useState<Variety | null>(null);
+  const [editingCommodityId, setEditingCommodityId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     name: '', growingWindow: { start: 'Jan', end: 'Dec' }, daysToHarvest: 60, bedSize: '38-2', spacing: '12in',
     plantType: 'transplant', idealStand: 30000, marketTypes: ['Fresh Cut'],
@@ -2039,34 +2058,34 @@ const CommoditiesFeature = ({ commodities, onAddVariety, onUpdateVariety, onDele
                 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-500">Growing Window:</span>
-                    <div className="font-medium">{variety.growingWindow.start} - {variety.growingWindow.end}</div>
+                    <span className="text-gray-700">Growing Window:</span>
+                    <div className="font-medium text-gray-900">{variety.growingWindow.start} - {variety.growingWindow.end}</div>
                   </div>
                   <div>
-                    <span className="text-gray-500">Days to Harvest:</span>
-                    <div className="font-medium">{variety.daysToHarvest} days</div>
+                    <span className="text-gray-700">Days to Harvest:</span>
+                    <div className="font-medium text-gray-900">{variety.daysToHarvest} days</div>
                   </div>
                   <div>
-                    <span className="text-gray-500">Bed Size:</span>
-                    <div className="font-medium">{variety.bedSize}</div>
+                    <span className="text-gray-700">Bed Size:</span>
+                    <div className="font-medium text-gray-900">{variety.bedSize}</div>
                   </div>
                   <div>
-                    <span className="text-gray-500">Ideal Stand/Acre:</span>
-                    <div className="font-medium">{variety.idealStand.toLocaleString()}</div>
+                    <span className="text-gray-700">Ideal Stand/Acre:</span>
+                    <div className="font-medium text-gray-900">{variety.idealStand.toLocaleString()}</div>
                   </div>
                 </div>
                 
                 <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
                   {variety.marketTypes.includes('Fresh Cut') && variety.budgetYieldPerAcre['Fresh Cut'] > 0 && (
                     <div>
-                      <span className="text-gray-500">Fresh Cut Yield:</span>
-                      <div className="font-medium">{variety.budgetYieldPerAcre['Fresh Cut'].toLocaleString()} cartons/acre</div>
+                      <span className="text-gray-700">Fresh Cut Yield:</span>
+                      <div className="font-medium text-gray-900">{variety.budgetYieldPerAcre['Fresh Cut'].toLocaleString()} cartons/acre</div>
                     </div>
                   )}
                   {variety.marketTypes.includes('Bulk') && variety.budgetYieldPerAcre['Bulk'] > 0 && (
                     <div>
-                      <span className="text-gray-500">Bulk Yield:</span>
-                      <div className="font-medium">{variety.budgetYieldPerAcre['Bulk'].toLocaleString()} lbs/acre</div>
+                      <span className="text-gray-700">Bulk Yield:</span>
+                      <div className="font-medium text-gray-900">{variety.budgetYieldPerAcre['Bulk'].toLocaleString()} lbs/acre</div>
                     </div>
                   )}
                 </div>
@@ -2094,7 +2113,7 @@ const CommoditiesFeature = ({ commodities, onAddVariety, onUpdateVariety, onDele
           placeholder="Variety Name"
           value={formData.name}
           onChange={(e) => setFormData({...formData, name: e.target.value})}
-          className="w-full p-2 border border-gray-300 rounded-lg"
+          className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
         />
         
         <div className="grid grid-cols-2 gap-4">
@@ -2104,7 +2123,7 @@ const CommoditiesFeature = ({ commodities, onAddVariety, onUpdateVariety, onDele
               ...formData,
               growingWindow: { ...formData.growingWindow, start: e.target.value }
             })}
-            className="w-full p-2 border border-gray-300 rounded-lg"
+            className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
           >
             {months.map(month => (
               <option key={month} value={month}>{month}</option>
@@ -2116,7 +2135,7 @@ const CommoditiesFeature = ({ commodities, onAddVariety, onUpdateVariety, onDele
               ...formData,
               growingWindow: { ...formData.growingWindow, end: e.target.value }
             })}
-            className="w-full p-2 border border-gray-300 rounded-lg"
+            className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
           >
             {months.map(month => (
               <option key={month} value={month}>{month}</option>
@@ -2133,7 +2152,7 @@ const CommoditiesFeature = ({ commodities, onAddVariety, onUpdateVariety, onDele
               ...formData,
               daysToHarvest: parseInt(e.target.value) || 60
             })}
-            className="w-full p-2 border border-gray-300 rounded-lg"
+            className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
           />
           <input
             type="number"
@@ -2143,7 +2162,7 @@ const CommoditiesFeature = ({ commodities, onAddVariety, onUpdateVariety, onDele
               ...formData,
               idealStand: parseInt(e.target.value) || 30000
             })}
-            className="w-full p-2 border border-gray-300 rounded-lg"
+            className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
           />
         </div>
         
@@ -2199,7 +2218,7 @@ const CommoditiesFeature = ({ commodities, onAddVariety, onUpdateVariety, onDele
           <label className="block text-sm text-gray-600 mb-2">Budget Yields per Acre</label>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Fresh Cut (cartons/acre)</label>
+              <label className="block text-xs text-gray-700 mb-1">Fresh Cut (cartons/acre)</label>
               <input
                 type="number"
                 value={formData.budgetYieldPerAcre['Fresh Cut']}
@@ -2210,12 +2229,12 @@ const CommoditiesFeature = ({ commodities, onAddVariety, onUpdateVariety, onDele
                     'Fresh Cut': parseInt(e.target.value) || 0
                   }
                 })}
-                className="w-full p-2 border border-gray-300 rounded-lg"
+                className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
                 disabled={!formData.marketTypes.includes('Fresh Cut')}
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Bulk (lbs/acre)</label>
+              <label className="block text-xs text-gray-700 mb-1">Bulk (lbs/acre)</label>
               <input
                 type="number"
                 value={formData.budgetYieldPerAcre['Bulk']}
@@ -2226,7 +2245,7 @@ const CommoditiesFeature = ({ commodities, onAddVariety, onUpdateVariety, onDele
                     'Bulk': parseInt(e.target.value) || 0
                   }
                 })}
-                className="w-full p-2 border border-gray-300 rounded-lg"
+                className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
                 disabled={!formData.marketTypes.includes('Bulk')}
               />
             </div>
@@ -2237,17 +2256,19 @@ const CommoditiesFeature = ({ commodities, onAddVariety, onUpdateVariety, onDele
   );
 };
 
-const LandFeature = ({ landStructure, plantings, dragHandlers, landManagement, splitNotification, clearSplitNotification, optimizeAllPlantings, optimizationResults, clearOptimizationResults, isOptimizing, setIsOptimizing }) => {
+const LandFeature: React.FC<LandFeatureProps> = ({ landStructure, plantings, dragHandlers, landManagement, splitNotification, clearSplitNotification, optimizeAllPlantings, optimizationResults, clearOptimizationResults, isOptimizing, setIsOptimizing }) => {
   const { handleDragStart, handleDragOver, handleDragLeave, handleDrop, handleDragEnd, dragPreview, draggedPlanting, smartSuggestions } = dragHandlers;
-  const { addRanch, updateRanch, deleteRanch, addLot, updateLot, deleteLot } = landManagement;
+  const { addRegion, addRanch, updateRanch, deleteRanch, addLot, updateLot, deleteLot } = landManagement;
   
   const [showRanchForm, setShowRanchForm] = useState(false);
   const [showLotForm, setShowLotForm] = useState(false);
-  const [editingRanch, setEditingRanch] = useState(null);
-  const [editingLot, setEditingLot] = useState(null);
-  const [selectedRegionId, setSelectedRegionId] = useState(null);
-  const [selectedRanchId, setSelectedRanchId] = useState(null);
+  const [showRegionForm, setShowRegionForm] = useState(false);
+  const [editingRanch, setEditingRanch] = useState<Ranch | null>(null);
+  const [editingLot, setEditingLot] = useState<Lot | null>(null);
+  const [selectedRegionId, setSelectedRegionId] = useState<number | null>(null);
+  const [selectedRanchId, setSelectedRanchId] = useState<number | null>(null);
   
+  const [regionFormData, setRegionFormData] = useState({ name: '' });
   const [ranchFormData, setRanchFormData] = useState({ name: '' });
   const [lotFormData, setLotFormData] = useState({
     number: '', acres: '', soilType: 'Sandy Loam', lastCrop: '', lastPlantDate: '', microclimate: 'Moderate'
@@ -2255,18 +2276,35 @@ const LandFeature = ({ landStructure, plantings, dragHandlers, landManagement, s
 
   // NEW: Handle optimization
   const handleOptimizeAll = async () => {
-    setIsOptimizing(true);
+    if (setIsOptimizing) {
+      setIsOptimizing(true);
+    }
     
     // Simulate processing time for better UX
     setTimeout(() => {
       const results = optimizeAllPlantings();
-      setIsOptimizing(false);
+      if (setIsOptimizing) {
+        setIsOptimizing(false);
+      }
     }, 1500);
   };
 
   const handleApplyOptimization = () => {
     // Results are already applied by optimizeAllPlantings
     clearOptimizationResults();
+  };
+
+  const handleAddRegion = () => {
+    setRegionFormData({ name: '' });
+    setShowRegionForm(true);
+  };
+
+  const handleSubmitRegion = () => {
+    if (regionFormData.name) {
+      addRegion(regionFormData.name);
+      setRegionFormData({ name: '' });
+      setShowRegionForm(false);
+    }
   };
 
   const handleAddRanch = (regionId) => {
@@ -2349,7 +2387,7 @@ const LandFeature = ({ landStructure, plantings, dragHandlers, landManagement, s
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold text-gray-900">Smart Land Management</h2>
         <div className="flex gap-2">
-          <Button>Add Region</Button>
+          <Button onClick={handleAddRegion}>Add Region</Button>
           {unassignedCount > 0 && (
             <Button 
               variant="success" 
@@ -2436,19 +2474,19 @@ const LandFeature = ({ landStructure, plantings, dragHandlers, landManagement, s
                       )}
                     </div>
                     <div className="text-sm text-gray-600">{planting.customer}</div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-gray-600">
                       {planting.volumeOrdered && planting.volumeOrdered.toLocaleString()} {planting.marketType === 'Fresh Cut' ? 'cartons' : 'lbs'} 
                       • <span className="font-medium">{planting.acres} acres</span> • Plant: {planting.wetDate}
                     </div>
                     {planting.originalOrderId && (
-                      <div className="text-xs text-gray-400 mt-1">
+                      <div className="text-xs text-gray-600 mt-1">
                         Order: {planting.originalOrderId}
                       </div>
                     )}
                   </div>
                 ))}
               {plantings.filter(p => !p.assigned).length === 0 && (
-                <div className="p-4 text-center text-gray-500 border border-dashed border-gray-300 rounded-lg">
+                <div className="p-4 text-center text-gray-600 border border-dashed border-gray-300 rounded-lg">
                   🎉 All plantings assigned! Use the "Generate Plantings" button to create more.
                 </div>
               )}
@@ -2553,7 +2591,7 @@ const LandFeature = ({ landStructure, plantings, dragHandlers, landManagement, s
                               <div className="flex-1">
                                 <div className="font-medium text-gray-800">📦 Lot {lot.number}</div>
                                 <div className="text-sm text-gray-600">{lot.acres} acres • {lot.soilType}</div>
-                                <div className="text-xs text-gray-500">Last: {lot.lastCrop} ({lot.lastPlantDate})</div>
+                                <div className="text-xs text-gray-600">Last: {lot.lastCrop} ({lot.lastPlantDate})</div>
                               </div>
                               <div className="flex items-start gap-2">
                                 <span className={`px-2 py-1 text-xs rounded-full ${
@@ -2588,7 +2626,7 @@ const LandFeature = ({ landStructure, plantings, dragHandlers, landManagement, s
                             
                             {/* Drop Zone Indicator */}
                             {capacity.plantingCount === 0 && (
-                              <div className="mt-2 text-xs text-gray-400 italic">
+                              <div className="mt-2 text-xs text-gray-600 italic">
                                 Drop plantings here →
                               </div>
                             )}
@@ -2626,7 +2664,7 @@ const LandFeature = ({ landStructure, plantings, dragHandlers, landManagement, s
                       })}
                       
                       {ranch.lots.length === 0 && (
-                        <div className="ml-4 p-4 text-center text-gray-500 border border-dashed border-gray-300 rounded-lg">
+                        <div className="ml-4 p-4 text-center text-gray-600 border border-dashed border-gray-300 rounded-lg">
                           No lots in this ranch. Click "Add Lot" to get started.
                         </div>
                       )}
@@ -2634,7 +2672,7 @@ const LandFeature = ({ landStructure, plantings, dragHandlers, landManagement, s
                   ))}
                   
                   {region.ranches.length === 0 && (
-                    <div className="ml-4 p-4 text-center text-gray-500 border border-dashed border-gray-300 rounded-lg">
+                    <div className="ml-4 p-4 text-center text-gray-600 border border-dashed border-gray-300 rounded-lg">
                       No ranches in this region. Click "Add Ranch" to get started.
                     </div>
                   )}
@@ -2644,6 +2682,32 @@ const LandFeature = ({ landStructure, plantings, dragHandlers, landManagement, s
           </div>
         </div>
       </div>
+
+      {/* Region Form Modal */}
+      <Modal
+        isOpen={showRegionForm}
+        onClose={() => { setShowRegionForm(false); setRegionFormData({ name: '' }); }}
+        title="Add New Region"
+        actions={[
+          <Button key="cancel" variant="outline" onClick={() => { 
+            setShowRegionForm(false); 
+            setRegionFormData({ name: '' }); 
+          }}>
+            Cancel
+          </Button>,
+          <Button key="submit" onClick={handleSubmitRegion}>
+            Add Region
+          </Button>
+        ]}
+      >
+        <input
+          type="text"
+          placeholder="Region Name"
+          value={regionFormData.name}
+          onChange={(e) => setRegionFormData({ ...regionFormData, name: e.target.value })}
+          className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
+        />
+      </Modal>
 
       {/* Ranch Form Modal */}
       <Modal
@@ -2668,7 +2732,7 @@ const LandFeature = ({ landStructure, plantings, dragHandlers, landManagement, s
           placeholder="Ranch Name"
           value={ranchFormData.name}
           onChange={(e) => setRanchFormData({ ...ranchFormData, name: e.target.value })}
-          className="w-full p-2 border border-gray-300 rounded-lg"
+          className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
         />
       </Modal>
 
@@ -2702,7 +2766,7 @@ const LandFeature = ({ landStructure, plantings, dragHandlers, landManagement, s
             placeholder="Lot Number"
             value={lotFormData.number}
             onChange={(e) => setLotFormData({ ...lotFormData, number: e.target.value })}
-            className="w-full p-2 border border-gray-300 rounded-lg"
+            className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
           />
           <input
             type="number"
@@ -2710,14 +2774,14 @@ const LandFeature = ({ landStructure, plantings, dragHandlers, landManagement, s
             placeholder="Acres"
             value={lotFormData.acres}
             onChange={(e) => setLotFormData({ ...lotFormData, acres: e.target.value })}
-            className="w-full p-2 border border-gray-300 rounded-lg"
+            className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
           />
         </div>
         
         <select
           value={lotFormData.soilType}
           onChange={(e) => setLotFormData({ ...lotFormData, soilType: e.target.value })}
-          className="w-full p-2 border border-gray-300 rounded-lg"
+          className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
         >
           {soilTypes.map(type => (
             <option key={type} value={type}>{type}</option>
@@ -2727,7 +2791,7 @@ const LandFeature = ({ landStructure, plantings, dragHandlers, landManagement, s
         <select
           value={lotFormData.microclimate}
           onChange={(e) => setLotFormData({ ...lotFormData, microclimate: e.target.value })}
-          className="w-full p-2 border border-gray-300 rounded-lg"
+          className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
         >
           {microclimates.map(climate => (
             <option key={climate} value={climate}>{climate}</option>
@@ -2739,7 +2803,7 @@ const LandFeature = ({ landStructure, plantings, dragHandlers, landManagement, s
           placeholder="Last Crop"
           value={lotFormData.lastCrop}
           onChange={(e) => setLotFormData({ ...lotFormData, lastCrop: e.target.value })}
-          className="w-full p-2 border border-gray-300 rounded-lg"
+          className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
         />
         
         <input
@@ -2747,7 +2811,7 @@ const LandFeature = ({ landStructure, plantings, dragHandlers, landManagement, s
           placeholder="Last Plant Date"
           value={lotFormData.lastPlantDate}
           onChange={(e) => setLotFormData({ ...lotFormData, lastPlantDate: e.target.value })}
-          className="w-full p-2 border border-gray-300 rounded-lg"
+          className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
         />
       </Modal>
     </div>
@@ -2784,7 +2848,7 @@ const PlanningFeature = ({ plantings }) => {
             </span>
           )}
         </div>
-        <div className="text-xs text-gray-400">{planting.variety}</div>
+        <div className="text-xs text-gray-600">{planting.variety}</div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">{planting.acres}</td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{planting.wetDate}</td>
@@ -2798,7 +2862,7 @@ const PlanningFeature = ({ plantings }) => {
           {planting.assigned ? 'Assigned' : 'Pending'}
         </span>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-400">
+      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-600">
         <div>{planting.originalOrderId}</div>
         {planting.splitTimestamp && (
           <div className="text-xs text-orange-600">
@@ -2841,7 +2905,7 @@ const PlanningFeature = ({ plantings }) => {
         <div className="bg-white p-4 rounded-lg shadow-sm">
           <div className="flex items-center gap-2">
             <div className="text-2xl font-bold" style={{ color: '#10b981' }}>{stats.optimizationScore}%</div>
-            <Brain size={16} className="text-gray-400" />
+            <Brain size={16} className="text-gray-600" />
           </div>
           <div className="text-sm text-gray-600">Completion</div>
         </div>
@@ -3204,6 +3268,7 @@ const CropPlanningApp = () => {
 
   // Land management functions
   const landManagementFunctions = {
+    addRegion,
     addRanch,
     updateRanch, 
     deleteRanch,
@@ -3219,8 +3284,7 @@ const CropPlanningApp = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <h1 className="text-2xl font-bold text-gray-900">
-              Dynamic Crop Planning 
-              <span className="text-sm font-normal text-gray-500 ml-2">Phase 3: Smart Optimization Engine 🤖</span>
+              Dynamic Crop Planning System
             </h1>
             <div className="flex gap-2">
               <Button onClick={generatePlantings}>
