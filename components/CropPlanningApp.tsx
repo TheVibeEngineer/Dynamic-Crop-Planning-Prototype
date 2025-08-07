@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, Download, AlertTriangle, CheckCircle, Scissors } from 'lucide-react';
 
 // =============================================================================
@@ -238,18 +238,87 @@ const csvService = {
 };
 
 // =============================================================================
+// PERSISTENCE UTILITIES - Data Storage Layer
+// =============================================================================
+
+const persistenceService = {
+  // Save data to localStorage with error handling
+  save: (key: string, data: any) => {
+    try {
+      // Check if we're in a browser environment
+      if (typeof window === 'undefined') return false;
+      
+      localStorage.setItem(key, JSON.stringify(data));
+      return true;
+    } catch (error) {
+      console.warn(`Failed to save ${key} to localStorage:`, error);
+      return false;
+    }
+  },
+
+  // Load data from localStorage with validation
+  load: (key: string, defaultValue: any = null) => {
+    try {
+      // Check if we're in a browser environment
+      if (typeof window === 'undefined') return defaultValue;
+      
+      const stored = localStorage.getItem(key);
+      if (!stored) return defaultValue;
+      
+      const parsed = JSON.parse(stored);
+      return parsed;
+    } catch (error) {
+      console.warn(`Failed to load ${key} from localStorage:`, error);
+      return defaultValue;
+    }
+  },
+
+  // Clear specific data
+  clear: (key: string) => {
+    try {
+      // Check if we're in a browser environment
+      if (typeof window === 'undefined') return false;
+      
+      localStorage.removeItem(key);
+      return true;
+    } catch (error) {
+      console.warn(`Failed to clear ${key} from localStorage:`, error);
+      return false;
+    }
+  },
+
+  // Clear all app data
+  clearAll: () => {
+    const keys = ['cropPlanning_orders', 'cropPlanning_commodities', 'cropPlanning_landStructure', 
+                  'cropPlanning_plantings', 'cropPlanning_activeTab'];
+    keys.forEach(key => persistenceService.clear(key));
+  }
+};
+
+// =============================================================================
 // CUSTOM HOOKS - State Management Layer  
 // =============================================================================
 
 const useOrders = () => {
-  const [orders, setOrders] = useState([
+  // Default orders data
+  const defaultOrders = [
     { id: 1, customer: 'Fresh Farms Co', commodity: 'Romaine', volume: 10000, marketType: 'Fresh Cut', deliveryDate: '2025-09-15', isWeekly: false },
     { id: 2, customer: 'Valley Produce', commodity: 'Carrots', volume: 50000, marketType: 'Bulk', deliveryDate: '2025-10-01', isWeekly: true },
     { id: 3, customer: 'Premium Greens', commodity: 'Iceberg', volume: 7500, marketType: 'Fresh Cut', deliveryDate: '2025-08-20', isWeekly: false },
     { id: 4, customer: 'Green Valley Co', commodity: 'Romaine', volume: 8000, marketType: 'Fresh Cut', deliveryDate: '2025-08-30', isWeekly: false },
     { id: 5, customer: 'Desert Fresh', commodity: 'Carrots', volume: 30000, marketType: 'Bulk', deliveryDate: '2025-11-15', isWeekly: false },
     { id: 6, customer: 'Coastal Greens', commodity: 'Iceberg', volume: 12000, marketType: 'Fresh Cut', deliveryDate: '2025-09-01', isWeekly: false }
-  ]);
+  ];
+
+  // Initialize with saved data or default
+  const [orders, setOrders] = useState(() => {
+    return persistenceService.load('cropPlanning_orders', defaultOrders);
+  });
+
+  // Auto-save orders when they change
+  useEffect(() => {
+    persistenceService.save('cropPlanning_orders', orders);
+  }, [orders]);
 
   const addOrder = (orderData) => {
     const order = {
@@ -274,7 +343,8 @@ const useOrders = () => {
 };
 
 const useCommodities = () => {
-  const [commodities, setCommodities] = useState([
+  // Default commodities data
+  const defaultCommodities = [
     {
       id: 1,
       name: 'Romaine',
@@ -315,7 +385,17 @@ const useCommodities = () => {
         }
       ]
     }
-  ]);
+  ];
+
+  // Initialize with saved data or default
+  const [commodities, setCommodities] = useState(() => {
+    return persistenceService.load('cropPlanning_commodities', defaultCommodities);
+  });
+
+  // Auto-save commodities when they change
+  useEffect(() => {
+    persistenceService.save('cropPlanning_commodities', commodities);
+  }, [commodities]);
 
   const addVariety = (commodityId, varietyData) => {
     const varietyWithId = { ...varietyData, id: Date.now() };
@@ -351,7 +431,8 @@ const useCommodities = () => {
 };
 
 const useLandManagement = () => {
-  const [landStructure, setLandStructure] = useState([
+  // Default land structure data
+  const defaultLandStructure = [
     {
       id: 1, region: 'Salinas',
       ranches: [
@@ -384,7 +465,17 @@ const useLandManagement = () => {
         }
       ]
     }
-  ]);
+  ];
+
+  // Initialize with saved data or default
+  const [landStructure, setLandStructure] = useState(() => {
+    return persistenceService.load('cropPlanning_landStructure', defaultLandStructure);
+  });
+
+  // Auto-save land structure when it changes
+  useEffect(() => {
+    persistenceService.save('cropPlanning_landStructure', landStructure);
+  }, [landStructure]);
 
   const findLot = (regionId, ranchId, lotId) => {
     const region = landStructure.find(r => r.id === regionId);
@@ -401,7 +492,15 @@ const useLandManagement = () => {
 };
 
 const usePlantings = (orders, commodities, landStructure) => {
-  const [plantings, setPlantings] = useState([]);
+  // Initialize with saved data or empty array
+  const [plantings, setPlantings] = useState(() => {
+    return persistenceService.load('cropPlanning_plantings', []);
+  });
+
+  // Auto-save plantings when they change
+  useEffect(() => {
+    persistenceService.save('cropPlanning_plantings', plantings);
+  }, [plantings]);
 
   const generatePlantings = () => {
     const newPlantings = plantingService.generateFromOrders(orders, commodities);
@@ -667,7 +766,8 @@ const Navigation = ({ activeTab, onTabChange }) => {
     { id: 'commodities', name: 'Commodities & Varieties', icon: '🌱' },
     { id: 'land', name: 'Land Management', icon: '🗺️' },
     { id: 'gantt', name: 'Timeline View', icon: '📅' },
-    { id: 'planning', name: 'Crop Planning', icon: '📊' }
+    { id: 'planning', name: 'Crop Planning', icon: '📊' },
+    { id: 'data', name: 'Data Management', icon: '💾' }
   ];
 
   return (
@@ -1629,12 +1729,260 @@ const PlanningFeature = ({ plantings }) => {
   );
 };
 
+const DataManagementFeature = () => {
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [lastBackup, setLastBackup] = useState(null);
+  const [isClient, setIsClient] = useState(false);
+
+  // Set client-side flag after component mounts
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Check if any data exists
+  const hasData = () => {
+    if (typeof window === 'undefined') return false;
+    return ['cropPlanning_orders', 'cropPlanning_commodities', 'cropPlanning_landStructure', 'cropPlanning_plantings']
+      .some(key => localStorage.getItem(key) !== null);
+  };
+
+  const exportData = () => {
+    try {
+      const data = {
+        orders: persistenceService.load('cropPlanning_orders', []),
+        commodities: persistenceService.load('cropPlanning_commodities', []),
+        landStructure: persistenceService.load('cropPlanning_landStructure', []),
+        plantings: persistenceService.load('cropPlanning_plantings', []),
+        activeTab: persistenceService.load('cropPlanning_activeTab', 'orders'),
+        exportDate: new Date().toISOString()
+      };
+
+      const dataStr = JSON.stringify(data, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `crop-planning-backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setLastBackup(new Date().toLocaleString());
+    } catch (error: any) {
+      alert('Export failed: ' + error.message);
+    }
+  };
+
+  const importData = (event: any) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        
+        // Validate data structure
+        if (!data.orders || !data.commodities || !data.landStructure) {
+          throw new Error('Invalid backup file format');
+        }
+
+        // Import data
+        persistenceService.save('cropPlanning_orders', data.orders);
+        persistenceService.save('cropPlanning_commodities', data.commodities);
+        persistenceService.save('cropPlanning_landStructure', data.landStructure);
+        persistenceService.save('cropPlanning_plantings', data.plantings || []);
+        
+        if (data.activeTab) {
+          persistenceService.save('cropPlanning_activeTab', data.activeTab);
+        }
+
+        alert('Data imported successfully! Please refresh the page to see changes.');
+      } catch (error: any) {
+        alert('Import failed: ' + error.message);
+      }
+    };
+    reader.readAsText(file);
+    
+    // Clear file input
+    event.target.value = '';
+  };
+
+  const resetData = () => {
+    persistenceService.clearAll();
+    setShowResetConfirm(false);
+    alert('All data has been reset! Please refresh the page to load default data.');
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white shadow rounded-lg p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">📊 Data Persistence Status</h2>
+        
+        <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-6">
+          <div className="flex items-start">
+            <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 mr-3" />
+            <div>
+              <h3 className="text-sm font-medium text-green-800">Auto-Save Active</h3>
+              <p className="text-sm text-green-700 mt-1">
+                Your data is automatically saved to your browser's local storage as you work. 
+                Changes to orders, commodities, land structure, and plantings are preserved between sessions.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="border rounded-lg p-4">
+            <h4 className="font-medium text-gray-900 mb-2">Saved Data</h4>
+            <div className="space-y-1 text-sm text-gray-600">
+              {isClient ? (
+                <>
+                  <div>• Orders: {persistenceService.load('cropPlanning_orders', []).length} entries</div>
+                  <div>• Commodities: {persistenceService.load('cropPlanning_commodities', []).length} types</div>
+                  <div>• Land Areas: {persistenceService.load('cropPlanning_landStructure', []).length} regions</div>
+                  <div>• Plantings: {persistenceService.load('cropPlanning_plantings', []).length} entries</div>
+                </>
+              ) : (
+                <>
+                  <div>• Orders: Loading...</div>
+                  <div>• Commodities: Loading...</div>
+                  <div>• Land Areas: Loading...</div>
+                  <div>• Plantings: Loading...</div>
+                </>
+              )}
+            </div>
+          </div>
+          
+          <div className="border rounded-lg p-4">
+            <h4 className="font-medium text-gray-900 mb-2">Browser Storage</h4>
+            <div className="space-y-1 text-sm text-gray-600">
+              <div>Storage Type: localStorage</div>
+              <div>Status: {isClient ? (hasData() ? 'Active' : 'Empty') : 'Loading...'}</div>
+              <div>Auto-backup: Enabled</div>
+              {lastBackup && <div>Last Export: {lastBackup}</div>}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white shadow rounded-lg p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">🛠️ Data Management Tools</h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="border rounded-lg p-4">
+            <h4 className="font-medium text-gray-900 mb-2">📤 Export Data</h4>
+            <p className="text-sm text-gray-600 mb-3">
+              Download all your data as a JSON backup file.
+            </p>
+            <Button onClick={exportData} className="w-full">
+              <Download size={16} />
+              Export Backup
+            </Button>
+          </div>
+
+          <div className="border rounded-lg p-4">
+            <h4 className="font-medium text-gray-900 mb-2">📥 Import Data</h4>
+            <p className="text-sm text-gray-600 mb-3">
+              Restore data from a previously exported backup file.
+            </p>
+            <label className="block">
+              <input
+                type="file"
+                accept=".json"
+                onChange={importData}
+                className="hidden"
+              />
+              <Button variant="secondary" className="w-full cursor-pointer">
+                Select Backup File
+              </Button>
+            </label>
+          </div>
+
+          <div className="border rounded-lg p-4">
+            <h4 className="font-medium text-gray-900 mb-2">🔄 Reset Data</h4>
+            <p className="text-sm text-gray-600 mb-3">
+              Clear all saved data and return to defaults.
+            </p>
+            <Button 
+              variant="destructive" 
+              onClick={() => setShowResetConfirm(true)}
+              className="w-full"
+            >
+              <AlertTriangle size={16} />
+              Reset All Data
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+        <h3 className="text-sm font-medium text-blue-800 mb-2">💡 Data Persistence Tips</h3>
+        <ul className="text-sm text-blue-700 space-y-1">
+          <li>• Your data is saved automatically as you work - no manual saving required</li>
+          <li>• Data persists between browser sessions and page refreshes</li>
+          <li>• Export regular backups to protect against browser data loss</li>
+          <li>• Use import/export to transfer data between different browsers or computers</li>
+          <li>• Clearing browser data will remove all saved information</li>
+        </ul>
+      </div>
+
+      {/* Reset Confirmation Modal */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">⚠️ Confirm Data Reset</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to reset all data? This will permanently delete:
+            </p>
+            <ul className="text-sm text-gray-600 mb-6 space-y-1">
+              <li>• All orders and customer data</li>
+              <li>• Commodity and variety configurations</li>
+              <li>• Land structure and lot information</li>
+              <li>• Generated plantings and assignments</li>
+            </ul>
+            <p className="text-sm text-red-600 mb-6 font-medium">
+              This action cannot be undone. Consider exporting a backup first.
+            </p>
+            <div className="flex space-x-3">
+              <Button 
+                variant="destructive" 
+                onClick={resetData}
+                className="flex-1"
+              >
+                Yes, Reset All Data
+              </Button>
+              <Button 
+                variant="secondary" 
+                onClick={() => setShowResetConfirm(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // =============================================================================
 // MAIN APPLICATION - Orchestration Layer
 // =============================================================================
 
 const CropPlanningApp = () => {
-  const [activeTab, setActiveTab] = useState('orders');
+  // Initialize active tab with saved data or default
+  const [activeTab, setActiveTab] = useState(() => {
+    return persistenceService.load('cropPlanning_activeTab', 'orders');
+  });
+
+  // Auto-save active tab when it changes
+  useEffect(() => {
+    persistenceService.save('cropPlanning_activeTab', activeTab);
+  }, [activeTab]);
   
   // Custom hooks for state management
   const { orders, addOrder, updateOrder, deleteOrder } = useOrders();
@@ -1713,6 +2061,10 @@ const CropPlanningApp = () => {
         
         {activeTab === 'planning' && (
           <PlanningFeature plantings={plantings} />
+        )}
+        
+        {activeTab === 'data' && (
+          <DataManagementFeature />
         )}
       </main>
       
