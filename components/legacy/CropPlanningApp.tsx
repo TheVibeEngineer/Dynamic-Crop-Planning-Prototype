@@ -1404,7 +1404,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, actions
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-10 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto mx-4">
         <h3 className="text-lg font-medium text-gray-900 mb-4">{title}</h3>
         <div className="space-y-4">{children}</div>
@@ -3191,7 +3191,7 @@ const DataManagementFeature = () => {
 
       {/* Reset Confirmation Modal */}
       {showResetConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-10 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">⚠️ Confirm Data Reset</h3>
             <p className="text-gray-600 mb-6">

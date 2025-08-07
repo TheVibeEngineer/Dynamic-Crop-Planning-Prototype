@@ -1,9 +1,6 @@
-import CropPlanningApp from '@/components/CropPlanningApp'
+import { redirect } from 'next/navigation';
 
 export default function Home() {
-  return (
-    <div suppressHydrationWarning={true}>
-      <CropPlanningApp />
-    </div>
-  )
+  // Redirect to orders page as the default landing
+  redirect('/orders');
 }

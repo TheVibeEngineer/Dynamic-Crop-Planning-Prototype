@@ -1,34 +1,37 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+// =============================================================================
+// ROOT LAYOUT - Main application layout with navigation
+// =============================================================================
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+import './globals.css';
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import { AppLayout } from '@/components/layout';
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: "Dynamic Crop Planning",
-  description: "Professional agricultural management system for crop planning, land management, and production scheduling",
+  title: 'Dynamic Crop Planning System',
+  description: 'Smart crop planning and land management system',
+  keywords: ['agriculture', 'crop planning', 'land management', 'farming'],
+  authors: [{ name: 'Crop Planning Team' }],
+  openGraph: {
+    title: 'Dynamic Crop Planning System',
+    description: 'Smart crop planning and land management system',
+    type: 'website',
+  },
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        suppressHydrationWarning={true}
-      >
-        {children}
+      <body className={inter.className}>
+        <AppLayout>
+          {children}
+        </AppLayout>
       </body>
     </html>
   );
