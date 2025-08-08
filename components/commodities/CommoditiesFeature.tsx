@@ -229,7 +229,7 @@ export const CommoditiesFeature: React.FC<CommoditiesFeatureProps> = ({
           <div key={commodity.id} className="bg-white rounded-lg shadow-sm border">
             <div className="p-4 border-b bg-gray-50">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium text-gray-900">🌾 {commodity.name}</h3>
+                <h3 className="text-lg font-medium text-gray-900">🥬 {commodity.name}</h3>
                 <div className="flex gap-2">
                   <Button
                     variant="ghost"

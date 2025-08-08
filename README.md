@@ -1,4 +1,4 @@
-# 🌾 Dynamic Crop Planning System
+# 🥬 Dynamic Crop Planning
 
 A modern, intelligent crop planning and land management system built with Next.js 15, TypeScript, and Tailwind CSS.
 

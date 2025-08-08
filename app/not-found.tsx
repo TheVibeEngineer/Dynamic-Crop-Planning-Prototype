@@ -13,7 +13,7 @@ export default function NotFound() {
   return (
     <div className="flex items-center justify-center min-h-[400px]">
       <div className="text-center max-w-md mx-auto p-6">
-        <div className="text-6xl mb-4">🌾</div>
+        <div className="text-6xl mb-4">🥬</div>
         
         <h2 className="text-2xl font-semibold text-gray-900 mb-2">
           Page Not Found
