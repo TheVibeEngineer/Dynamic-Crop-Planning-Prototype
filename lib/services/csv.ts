@@ -7,15 +7,19 @@ import type { Planting } from '@/types';
 export const csvService = {
   exportPlantings: (plantings: Planting[]) => {
     const headers = [
-      'ID', 'Crop', 'Variety', 'Acres', 'Plant Date', 'Harvest Date', 
+      'ID', 'Region', 'Ranch', 'Lot', 'Sublot', 'Crop', 'Variety', 'Acres', 'Plant Date', 'Harvest Date', 
       'Market Type', 'Customer', 'Volume Ordered', 'Total Yield', 
-      'Budget Yield/Acre', 'Assigned', 'Region', 'Ranch', 'Lot', 'Sublot'
+      'Budget Yield/Acre', 'Assigned'
     ];
     
     const csvContent = [
       headers.join(','),
       ...plantings.map(p => [
         p.id,
+        p.region || '',
+        p.ranch || '',
+        p.lot || '',
+        p.sublot || '',
         p.crop,
         p.variety,
         p.acres,
@@ -26,11 +30,7 @@ export const csvService = {
         p.volumeOrdered || '',
         p.totalYield || '',
         p.budgetYieldPerAcre || '',
-        p.assigned ? 'Yes' : 'No',
-        p.region || '',
-        p.ranch || '',
-        p.lot || '',
-        p.sublot || ''
+        p.assigned ? 'Yes' : 'No'
       ].map(field => `"${field}"`).join(','))
     ].join('\n');
     

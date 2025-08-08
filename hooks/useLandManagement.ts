@@ -7,7 +7,10 @@ import type { Region, Ranch, Lot, LandManagementActions } from '@/types';
 import { persistenceService } from '@/lib/services/persistence';
 import { STORAGE_KEYS } from '@/lib/constants';
 
-export const useLandManagement = (): LandManagementActions & { 
+export const useLandManagement = (
+  plantings?: any[],
+  unassignPlanting?: (plantingId: string) => void
+): LandManagementActions & { 
   landStructure: Region[];
   setLandStructure: React.Dispatch<React.SetStateAction<Region[]>>;
 } => {
@@ -66,6 +69,24 @@ export const useLandManagement = (): LandManagementActions & {
     setLandStructure((prev) => [...prev, newRegion]);
   };
 
+  const updateRegion = (regionId: number, regionData: Partial<Region>) => {
+    setLandStructure((prev) => prev.map((region) =>
+      region.id === regionId ? { ...region, ...regionData } : region
+    ));
+  };
+
+  const deleteRegion = (regionId: number) => {
+    // Unassign all plantings in this region
+    if (plantings && unassignPlanting) {
+      const plantingsToUnassign = plantings.filter(
+        (p: any) => p.assigned && p.assignedLot?.regionId === regionId
+      );
+      plantingsToUnassign.forEach((p: any) => unassignPlanting(p.id));
+    }
+    
+    setLandStructure((prev) => prev.filter((region) => region.id !== regionId));
+  };
+
   const addRanch = (regionId: number, ranchData: Partial<Ranch>) => {
     const newRanch: Ranch = {
       id: Date.now(),
@@ -93,6 +114,14 @@ export const useLandManagement = (): LandManagementActions & {
   };
 
   const deleteRanch = (regionId: number, ranchId: number) => {
+    // Unassign all plantings in this ranch
+    if (plantings && unassignPlanting) {
+      const plantingsToUnassign = plantings.filter(
+        (p: any) => p.assigned && p.assignedLot?.regionId === regionId && p.assignedLot?.ranchId === ranchId
+      );
+      plantingsToUnassign.forEach((p: any) => unassignPlanting(p.id));
+    }
+    
     setLandStructure((prev) => prev.map((region) =>
       region.id === regionId
         ? { ...region, ranches: region.ranches.filter((ranch) => ranch.id !== ranchId) }
@@ -101,6 +130,15 @@ export const useLandManagement = (): LandManagementActions & {
   };
 
   const addLot = (regionId: number, ranchId: number, lotData: Partial<Lot>) => {
+    // Check if lot number already exists in this ranch
+    const region = landStructure.find(r => r.id === regionId);
+    const ranch = region?.ranches.find(r => r.id === ranchId);
+    const existingLot = ranch?.lots.find(l => l.number === lotData.number);
+    
+    if (existingLot) {
+      throw new Error(`Lot number "${lotData.number}" already exists in this ranch. Please choose a different lot number.`);
+    }
+    
     const newLot: Lot = {
       id: Date.now(),
       number: lotData.number || '',
@@ -126,6 +164,17 @@ export const useLandManagement = (): LandManagementActions & {
   };
 
   const updateLot = (regionId: number, ranchId: number, lotId: number, lotData: Partial<Lot>) => {
+    // Check if lot number already exists in this ranch (excluding the current lot being updated)
+    if (lotData.number) {
+      const region = landStructure.find(r => r.id === regionId);
+      const ranch = region?.ranches.find(r => r.id === ranchId);
+      const existingLot = ranch?.lots.find(l => l.number === lotData.number && l.id !== lotId);
+      
+      if (existingLot) {
+        throw new Error(`Lot number "${lotData.number}" already exists in this ranch. Please choose a different lot number.`);
+      }
+    }
+    
     setLandStructure((prev) => prev.map((region) =>
       region.id === regionId
         ? {
@@ -152,6 +201,15 @@ export const useLandManagement = (): LandManagementActions & {
   };
 
   const deleteLot = (regionId: number, ranchId: number, lotId: number) => {
+    // Unassign all plantings in this lot
+    if (plantings && unassignPlanting) {
+      const plantingsToUnassign = plantings.filter(
+        (p: any) => p.assigned && p.assignedLot?.regionId === regionId && 
+                    p.assignedLot?.ranchId === ranchId && p.assignedLot?.lotId === lotId
+      );
+      plantingsToUnassign.forEach((p: any) => unassignPlanting(p.id));
+    }
+    
     setLandStructure((prev) => prev.map((region) =>
       region.id === regionId
         ? {
@@ -176,7 +234,9 @@ export const useLandManagement = (): LandManagementActions & {
   return { 
     landStructure, 
     setLandStructure, 
-    addRegion, 
+    addRegion,
+    updateRegion,
+    deleteRegion,
     addRanch, 
     updateRanch, 
     deleteRanch,

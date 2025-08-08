@@ -38,11 +38,13 @@ export interface AppContextType {
   
   // Land actions
   addRegion: (region: Partial<Region>) => void;
+  updateRegion: (regionId: number, regionData: Partial<Region>) => void;
+  deleteRegion: (regionId: number) => void;
   addRanch: (regionId: number, ranch: any) => void;
-  updateRanch: (regionId: number, ranch: any) => void;
+  updateRanch: (regionId: number, ranchId: number, ranch: any) => void;
   deleteRanch: (regionId: number, ranchId: number) => void;
   addLot: (regionId: number, ranchId: number, lot: any) => void;
-  updateLot: (regionId: number, ranchId: number, lot: any) => void;
+  updateLot: (regionId: number, ranchId: number, lotId: number, lot: any) => void;
   deleteLot: (regionId: number, ranchId: number, lotId: number) => void;
   findLot: (regionId: number, ranchId: number, lotId: number) => any;
   
@@ -90,9 +92,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   // Initialize all hooks
   const { orders, addOrder, updateOrder, deleteOrder } = useOrders();
   const { commodities, addVariety, updateVariety, deleteVariety } = useCommodities();
+  const { plantings, generatePlantings, assignPlantingToLot, unassignPlanting, optimizeAllPlantings } = usePlantings(orders, commodities, []);
   const { 
     landStructure, 
     addRegion, 
+    updateRegion,
+    deleteRegion,
     addRanch, 
     updateRanch, 
     deleteRanch, 
@@ -100,8 +105,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     updateLot, 
     deleteLot, 
     findLot 
-  } = useLandManagement();
-  const { plantings, generatePlantings, assignPlantingToLot, unassignPlanting, optimizeAllPlantings } = usePlantings(orders, commodities, landStructure);
+  } = useLandManagement(plantings, unassignPlanting);
   
   // Notifications and optimization
   const { splitNotification, showSplitNotification, clearSplitNotification } = useSplitNotifications();
@@ -147,6 +151,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     
     // Land actions
     addRegion,
+    updateRegion,
+    deleteRegion,
     addRanch,
     updateRanch,
     deleteRanch,

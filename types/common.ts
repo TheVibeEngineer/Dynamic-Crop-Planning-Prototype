@@ -62,6 +62,11 @@ export interface SmartSuggestion {
   score: number;
   reasons: string[];
   location: string;
+  region?: any;
+  ranch?: any;
+  lot?: any;
+  capacity?: any;
+  fitType?: 'perfect' | 'split' | 'none';
 }
 
 export interface DragAndDropHandlers {

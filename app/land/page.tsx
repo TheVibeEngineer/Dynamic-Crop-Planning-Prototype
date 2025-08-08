@@ -14,6 +14,8 @@ export default function LandPage() {
     plantings,
     dragHandlers,
     addRegion,
+    updateRegion,
+    deleteRegion,
     addRanch,
     updateRanch,
     deleteRanch,
@@ -31,6 +33,8 @@ export default function LandPage() {
 
   const landManagement = {
     addRegion,
+    updateRegion,
+    deleteRegion,
     addRanch,
     updateRanch,
     deleteRanch,

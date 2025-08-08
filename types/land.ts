@@ -49,6 +49,8 @@ export interface LandStructureState {
 
 export interface LandManagementActions {
   addRegion: (regionData: Partial<Region>) => void;
+  updateRegion: (regionId: number, regionData: Partial<Region>) => void;
+  deleteRegion: (regionId: number) => void;
   addRanch: (regionId: number, ranchData: Partial<Ranch>) => void;
   updateRanch: (regionId: number, ranchId: number, ranchData: Partial<Ranch>) => void;
   deleteRanch: (regionId: number, ranchId: number) => void;

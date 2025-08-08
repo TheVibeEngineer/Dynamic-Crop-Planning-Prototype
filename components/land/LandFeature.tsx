@@ -15,8 +15,9 @@ import type {
   DragAndDropHandlers 
 } from '@/types/common';
 import { Button, Modal } from '../common';
-import { Zap, RefreshCw } from 'lucide-react';
+import { Zap, RefreshCw, Edit, Trash2, Check, X, CheckCircle, Target, AlertCircle, TrendingUp } from 'lucide-react';
 import { SOIL_TYPES, MICROCLIMATES } from '@/lib/constants';
+import { optimizationEngine } from '@/lib/services/optimization';
 
 export interface LandFeatureProps {
   landStructure: Region[];
@@ -24,6 +25,8 @@ export interface LandFeatureProps {
   dragHandlers: DragAndDropHandlers;
   landManagement: {
     addRegion: (regionData: Partial<Region>) => void;
+    updateRegion: (regionId: number, regionData: Partial<Region>) => void;
+    deleteRegion: (regionId: number) => void;
     addRanch: (regionId: number, ranchData: Partial<Ranch>) => void;
     updateRanch: (regionId: number, ranchId: number, ranchData: Partial<Ranch>) => void;
     deleteRanch: (regionId: number, ranchId: number) => void;
@@ -65,16 +68,33 @@ export const LandFeature: React.FC<LandFeatureProps> = ({
     smartSuggestions 
   } = dragHandlers;
   
-  const { addRegion, addRanch, updateRanch, deleteRanch, addLot, updateLot, deleteLot } = landManagement;
+  const { addRegion, updateRegion, deleteRegion, addRanch, updateRanch, deleteRanch, addLot, updateLot, deleteLot } = landManagement;
   
   // Form states
   const [showRanchForm, setShowRanchForm] = useState(false);
   const [showLotForm, setShowLotForm] = useState(false);
   const [showRegionForm, setShowRegionForm] = useState(false);
+  const [editingRegion, setEditingRegion] = useState<Region | null>(null);
   const [editingRanch, setEditingRanch] = useState<Ranch | null>(null);
   const [editingLot, setEditingLot] = useState<Lot | null>(null);
   const [selectedRegionId, setSelectedRegionId] = useState<number | null>(null);
   const [selectedRanchId, setSelectedRanchId] = useState<number | null>(null);
+  
+  // Confirmation states for deletions
+  const [confirmDelete, setConfirmDelete] = useState<{
+    type: 'region' | 'ranch' | 'lot';
+    id: number;
+    regionId?: number;
+    ranchId?: number;
+    name: string;
+  } | null>(null);
+  
+  // Error state for validation
+  const [formError, setFormError] = useState<string | null>(null);
+  
+  // Hover suggestions state
+  const [hoverSuggestions, setHoverSuggestions] = useState<any[]>([]);
+  const [hoveredPlanting, setHoveredPlanting] = useState<any>(null);
   
   // Form data
   const [regionFormData, setRegionFormData] = useState({ name: '' });
@@ -111,15 +131,24 @@ export const LandFeature: React.FC<LandFeatureProps> = ({
 
   const handleSubmitRegion = () => {
     if (regionFormData.name) {
-      addRegion({ region: regionFormData.name });
+      if (editingRegion) {
+        updateRegion(editingRegion.id, { region: regionFormData.name });
+      } else {
+        addRegion({ region: regionFormData.name });
+      }
       setRegionFormData({ name: '' });
       setShowRegionForm(false);
+      setEditingRegion(null);
     }
   };
 
   const handleSubmitRanch = () => {
     if (ranchFormData.name && selectedRegionId) {
-      addRanch(selectedRegionId, { name: ranchFormData.name });
+      if (editingRanch) {
+        updateRanch(selectedRegionId, editingRanch.id, { name: ranchFormData.name });
+      } else {
+        addRanch(selectedRegionId, { name: ranchFormData.name });
+      }
       setRanchFormData({ name: '' });
       resetForms();
     }
@@ -127,23 +156,41 @@ export const LandFeature: React.FC<LandFeatureProps> = ({
 
   const handleSubmitLot = () => {
     if (lotFormData.number && lotFormData.acres && selectedRegionId && selectedRanchId) {
-      addLot(selectedRegionId, selectedRanchId, {
-        number: lotFormData.number,
-        acres: parseFloat(lotFormData.acres),
-        soilType: lotFormData.soilType,
-        lastCrop: lotFormData.lastCrop,
-        lastPlantDate: lotFormData.lastPlantDate,
-        microclimate: lotFormData.microclimate
-      });
-      setLotFormData({
-        number: '', 
-        acres: '', 
-        soilType: 'Sandy Loam', 
-        lastCrop: '', 
-        lastPlantDate: '', 
-        microclimate: 'Moderate'
-      });
-      resetForms();
+      try {
+        setFormError(null); // Clear any previous errors
+        
+        if (editingLot) {
+          updateLot(selectedRegionId, selectedRanchId, editingLot.id, {
+            number: lotFormData.number,
+            acres: parseFloat(lotFormData.acres),
+            soilType: lotFormData.soilType,
+            lastCrop: lotFormData.lastCrop,
+            lastPlantDate: lotFormData.lastPlantDate,
+            microclimate: lotFormData.microclimate
+          });
+        } else {
+          addLot(selectedRegionId, selectedRanchId, {
+            number: lotFormData.number,
+            acres: parseFloat(lotFormData.acres),
+            soilType: lotFormData.soilType,
+            lastCrop: lotFormData.lastCrop,
+            lastPlantDate: lotFormData.lastPlantDate,
+            microclimate: lotFormData.microclimate
+          });
+        }
+        
+        setLotFormData({
+          number: '', 
+          acres: '', 
+          soilType: 'Sandy Loam', 
+          lastCrop: '', 
+          lastPlantDate: '', 
+          microclimate: 'Moderate'
+        });
+        resetForms();
+      } catch (error) {
+        setFormError(error instanceof Error ? error.message : 'An error occurred');
+      }
     }
   };
 
@@ -151,10 +198,75 @@ export const LandFeature: React.FC<LandFeatureProps> = ({
     setShowRanchForm(false);
     setShowLotForm(false);
     setShowRegionForm(false);
+    setEditingRegion(null);
     setEditingRanch(null);
     setEditingLot(null);
     setSelectedRegionId(null);
     setSelectedRanchId(null);
+    setFormError(null);
+  };
+
+  // Edit handlers
+  const handleEditRegion = (region: Region) => {
+    setEditingRegion(region);
+    setRegionFormData({ name: region.region });
+    setShowRegionForm(true);
+  };
+
+  const handleEditRanch = (regionId: number, ranch: Ranch) => {
+    setSelectedRegionId(regionId);
+    setEditingRanch(ranch);
+    setRanchFormData({ name: ranch.name });
+    setShowRanchForm(true);
+  };
+
+  const handleEditLot = (regionId: number, ranchId: number, lot: Lot) => {
+    setSelectedRegionId(regionId);
+    setSelectedRanchId(ranchId);
+    setEditingLot(lot);
+    setLotFormData({
+      number: lot.number,
+      acres: lot.acres.toString(),
+      soilType: lot.soilType,
+      lastCrop: lot.lastCrop || '',
+      lastPlantDate: lot.lastPlantDate || '',
+      microclimate: lot.microclimate
+    });
+    setShowLotForm(true);
+  };
+
+  // Delete handlers
+  const handleDeleteConfirm = (type: 'region' | 'ranch' | 'lot', id: number, name: string, regionId?: number, ranchId?: number) => {
+    setConfirmDelete({ type, id, name, regionId, ranchId });
+  };
+
+  const executeDelete = () => {
+    if (!confirmDelete) return;
+
+    switch (confirmDelete.type) {
+      case 'region':
+        deleteRegion(confirmDelete.id);
+        break;
+      case 'ranch':
+        if (confirmDelete.regionId) {
+          deleteRanch(confirmDelete.regionId, confirmDelete.id);
+        }
+        break;
+      case 'lot':
+        if (confirmDelete.regionId && confirmDelete.ranchId) {
+          deleteLot(confirmDelete.regionId, confirmDelete.ranchId, confirmDelete.id);
+        }
+        break;
+    }
+    setConfirmDelete(null);
+  };
+
+  // Helper function to check if lot number is available
+  const isLotNumberAvailable = (lotNumber: string, regionId: number, ranchId: number, excludeLotId?: number) => {
+    const region = landStructure.find(r => r.id === regionId);
+    const ranch = region?.ranches.find(r => r.id === ranchId);
+    const existingLot = ranch?.lots.find(l => l.number === lotNumber && l.id !== excludeLotId);
+    return !existingLot;
   };
 
   const unassignedCount = plantings.filter(p => !p.assigned).length;
@@ -221,6 +333,15 @@ export const LandFeature: React.FC<LandFeatureProps> = ({
                     draggable
                     onDragStart={(e) => handleDragStart(e, planting)}
                     onDragEnd={handleDragEnd}
+                    onMouseEnter={() => {
+                      const suggestions = optimizationEngine.findBestLots(planting, landStructure, plantings, 3);
+                      setHoverSuggestions(suggestions);
+                      setHoveredPlanting(planting);
+                    }}
+                    onMouseLeave={() => {
+                      setHoverSuggestions([]);
+                      setHoveredPlanting(null);
+                    }}
                     className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg cursor-move hover:bg-yellow-100 transition-colors"
                   >
                     <div className="font-medium text-gray-900 flex items-center gap-2">
@@ -251,16 +372,36 @@ export const LandFeature: React.FC<LandFeatureProps> = ({
             <div className="p-4 border-b bg-gray-50">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-medium text-gray-900">📍 {region.region}</h3>
-                <Button 
-                  variant="secondary" 
-                  onClick={() => {
-                    setSelectedRegionId(region.id);
-                    setShowRanchForm(true);
-                  }}
-                  className="text-sm"
-                >
-                  Add Ranch
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleEditRegion(region)}
+                    className="text-xs p-2"
+                    title="Edit Region"
+                  >
+                    <Edit size={14} />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteConfirm('region', region.id, region.region)}
+                    className="text-xs p-2 text-red-600 hover:text-red-700"
+                    title="Delete Region"
+                  >
+                    <Trash2 size={14} />
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    onClick={() => {
+                      setSelectedRegionId(region.id);
+                      setShowRanchForm(true);
+                    }}
+                    className="text-sm"
+                  >
+                    Add Ranch
+                  </Button>
+                </div>
               </div>
             </div>
             
@@ -270,17 +411,37 @@ export const LandFeature: React.FC<LandFeatureProps> = ({
                   <div className="p-3 bg-blue-50 border-b">
                     <div className="flex justify-between items-center">
                       <h4 className="font-medium text-blue-900">🏪 {ranch.name}</h4>
-                      <Button 
-                        variant="secondary"
-                        onClick={() => {
-                          setSelectedRegionId(region.id);
-                          setSelectedRanchId(ranch.id);
-                          setShowLotForm(true);
-                        }}
-                        className="text-xs px-2 py-1"
-                      >
-                        Add Lot
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditRanch(region.id, ranch)}
+                          className="text-xs p-1"
+                          title="Edit Ranch"
+                        >
+                          <Edit size={12} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteConfirm('ranch', ranch.id, ranch.name, region.id)}
+                          className="text-xs p-1 text-red-600 hover:text-red-700"
+                          title="Delete Ranch"
+                        >
+                          <Trash2 size={12} />
+                        </Button>
+                        <Button 
+                          variant="secondary"
+                          onClick={() => {
+                            setSelectedRegionId(region.id);
+                            setSelectedRanchId(ranch.id);
+                            setShowLotForm(true);
+                          }}
+                          className="text-xs px-2 py-1"
+                        >
+                          Add Lot
+                        </Button>
+                      </div>
                     </div>
                   </div>
                   
@@ -295,14 +456,34 @@ export const LandFeature: React.FC<LandFeatureProps> = ({
                       return (
                         <div
                           key={lot.id}
-                          className="border rounded-lg p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+                          className="group border rounded-lg p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
                           onDragOver={(e) => handleDragOver(e, region.id, ranch.id, lot.id)}
                           onDragLeave={handleDragLeave}
                           onDrop={(e) => handleDrop(e, region.id, ranch.id, lot.id)}
                         >
                           <div className="flex justify-between items-start mb-2">
                             <div className="font-medium text-gray-900">Lot {lot.number}</div>
-                            <div className="text-xs text-gray-600">{lot.acres} acres</div>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditLot(region.id, ranch.id, lot)}
+                                className="text-xs p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Edit Lot"
+                              >
+                                <Edit size={10} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteConfirm('lot', lot.id, `Lot ${lot.number}`, region.id, ranch.id)}
+                                className="text-xs p-1 text-red-600 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Delete Lot"
+                              >
+                                <Trash2 size={10} />
+                              </Button>
+                              <div className="text-xs text-gray-600">{lot.acres} acres</div>
+                            </div>
                           </div>
                           
                           <div className="text-xs text-gray-600 space-y-1">
@@ -379,15 +560,32 @@ export const LandFeature: React.FC<LandFeatureProps> = ({
         </div>
       </div>
 
+      {/* Drag Preview with Smart Scoring */}
+      {dragPreview && draggedPlanting && (
+        <DragPreview dragPreview={dragPreview} draggedPlanting={draggedPlanting} />
+      )}
+
+      {/* Smart Suggestions Panel - During Drag */}
+      {smartSuggestions && smartSuggestions.length > 0 && draggedPlanting && (
+        <SmartSuggestionsPanel suggestions={smartSuggestions} draggedPlanting={draggedPlanting} isDragging={true} />
+      )}
+
+      {/* Hover Suggestions Panel - On Hover */}
+      {hoverSuggestions && hoverSuggestions.length > 0 && hoveredPlanting && !draggedPlanting && (
+        <SmartSuggestionsPanel suggestions={hoverSuggestions} draggedPlanting={hoveredPlanting} isDragging={false} />
+      )}
+
       {/* Region Form Modal */}
       <Modal
         isOpen={showRegionForm}
         onClose={resetForms}
-        title="Add New Region"
+        title={editingRegion ? "Edit Region" : "Add New Region"}
         footer={
           <>
             <Button variant="secondary" onClick={resetForms}>Cancel</Button>
-            <Button onClick={handleSubmitRegion}>Add Region</Button>
+            <Button onClick={handleSubmitRegion}>
+              {editingRegion ? "Update Region" : "Add Region"}
+            </Button>
           </>
         }
       >
@@ -409,11 +607,13 @@ export const LandFeature: React.FC<LandFeatureProps> = ({
       <Modal
         isOpen={showRanchForm}
         onClose={resetForms}
-        title="Add New Ranch"
+        title={editingRanch ? "Edit Ranch" : "Add New Ranch"}
         footer={
           <>
             <Button variant="secondary" onClick={resetForms}>Cancel</Button>
-            <Button onClick={handleSubmitRanch}>Add Ranch</Button>
+            <Button onClick={handleSubmitRanch}>
+              {editingRanch ? "Update Ranch" : "Add Ranch"}
+            </Button>
           </>
         }
       >
@@ -435,27 +635,88 @@ export const LandFeature: React.FC<LandFeatureProps> = ({
       <Modal
         isOpen={showLotForm}
         onClose={resetForms}
-        title="Add New Lot"
+        title={editingLot ? "Edit Lot" : "Add New Lot"}
         footer={
           <>
             <Button variant="secondary" onClick={resetForms}>Cancel</Button>
-            <Button onClick={handleSubmitLot}>Add Lot</Button>
+            <Button 
+              onClick={handleSubmitLot}
+              disabled={
+                !lotFormData.number || 
+                !lotFormData.acres || 
+                Boolean(selectedRegionId && selectedRanchId && lotFormData.number && 
+                 !isLotNumberAvailable(lotFormData.number, selectedRegionId, selectedRanchId, editingLot?.id))
+              }
+            >
+              {editingLot ? "Update Lot" : "Add Lot"}
+            </Button>
           </>
         }
       >
         <div className="space-y-4">
+          {formError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <X size={16} className="text-red-600" />
+                <span className="text-red-800 text-sm font-medium">Validation Error</span>
+              </div>
+              <p className="text-red-700 text-sm mt-1">{formError}</p>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Lot Number
               </label>
-              <input
-                type="text"
-                placeholder="Lot number"
-                value={lotFormData.number}
-                onChange={(e) => setLotFormData({...lotFormData, number: e.target.value})}
-                className="w-full p-2 border border-gray-300 rounded-lg text-gray-900"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Lot number"
+                  value={lotFormData.number}
+                  onChange={(e) => {
+                    setLotFormData({...lotFormData, number: e.target.value});
+                    // Clear error when user starts typing
+                    if (formError) setFormError(null);
+                  }}
+                  className={`w-full p-2 border rounded-lg text-gray-900 ${
+                    lotFormData.number && selectedRegionId && selectedRanchId && 
+                    !isLotNumberAvailable(lotFormData.number, selectedRegionId, selectedRanchId, editingLot?.id)
+                      ? 'border-red-300 bg-red-50' 
+                      : 'border-gray-300'
+                  }`}
+                />
+                {lotFormData.number && selectedRegionId && selectedRanchId && (
+                  <div className="absolute right-2 top-2">
+                    {isLotNumberAvailable(lotFormData.number, selectedRegionId, selectedRanchId, editingLot?.id) ? (
+                      <Check size={16} className="text-green-600" />
+                    ) : (
+                      <X size={16} className="text-red-600" />
+                    )}
+                  </div>
+                )}
+              </div>
+              {lotFormData.number && selectedRegionId && selectedRanchId && 
+               !isLotNumberAvailable(lotFormData.number, selectedRegionId, selectedRanchId, editingLot?.id) && (
+                <p className="text-red-600 text-xs mt-1">
+                  Lot number "{lotFormData.number}" already exists in this ranch
+                </p>
+              )}
+              {selectedRegionId && selectedRanchId && (
+                (() => {
+                  const region = landStructure.find(r => r.id === selectedRegionId);
+                  const ranch = region?.ranches.find(r => r.id === selectedRanchId);
+                  const existingLots = ranch?.lots.filter(l => editingLot ? l.id !== editingLot.id : true) || [];
+                  
+                  if (existingLots.length > 0) {
+                    return (
+                      <p className="text-gray-500 text-xs mt-1">
+                        Existing lots: {existingLots.map(l => l.number).join(', ')}
+                      </p>
+                    );
+                  }
+                  return null;
+                })()
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -552,7 +813,7 @@ export const LandFeature: React.FC<LandFeatureProps> = ({
 
       {/* Optimization Results */}
       {optimizationResults && (
-        <div className="fixed inset-0 bg-black bg-opacity-10 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/10 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               🤖 Optimization Results
@@ -560,16 +821,16 @@ export const LandFeature: React.FC<LandFeatureProps> = ({
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div className="text-center">
-                  <div className="font-semibold text-lg">{optimizationResults.summary.totalPlantings}</div>
-                  <div className="text-gray-600">Total Plantings</div>
+                  <div className="font-bold text-2xl text-gray-900">{optimizationResults.summary.totalPlantings}</div>
+                  <div className="text-gray-700 font-medium">Total Plantings</div>
                 </div>
                 <div className="text-center">
-                  <div className="font-semibold text-lg">{optimizationResults.summary.successfulAssignments}</div>
-                  <div className="text-gray-600">Assigned</div>
+                  <div className="font-bold text-2xl text-gray-900">{optimizationResults.summary.successfulAssignments}</div>
+                  <div className="text-gray-700 font-medium">Assigned</div>
                 </div>
                 <div className="text-center">
-                  <div className="font-semibold text-lg">{optimizationResults.summary.averageScore}</div>
-                  <div className="text-gray-600">Avg Score</div>
+                  <div className="font-bold text-2xl text-gray-900">{optimizationResults.summary.averageScore}</div>
+                  <div className="text-gray-700 font-medium">Avg Score</div>
                 </div>
               </div>
             </div>
@@ -579,6 +840,195 @@ export const LandFeature: React.FC<LandFeatureProps> = ({
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      {confirmDelete && (
+        <Modal
+          isOpen={true}
+          onClose={() => setConfirmDelete(null)}
+          title="Confirm Deletion"
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setConfirmDelete(null)}>Cancel</Button>
+              <Button variant="danger" onClick={executeDelete}>
+                Delete {confirmDelete.type === 'region' ? 'Region' : confirmDelete.type === 'ranch' ? 'Ranch' : 'Lot'}
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            <p className="text-gray-700">
+              Are you sure you want to delete{' '}
+              <span className="font-medium">{confirmDelete.name}</span>?
+            </p>
+            {confirmDelete.type === 'region' && (
+              <p className="text-sm text-red-600">
+                ⚠️ This will also delete all ranches and lots within this region.
+              </p>
+            )}
+            {confirmDelete.type === 'ranch' && (
+              <p className="text-sm text-red-600">
+                ⚠️ This will also delete all lots within this ranch.
+              </p>
+            )}
+            {confirmDelete.type === 'lot' && (
+              <p className="text-sm text-red-600">
+                ⚠️ Any plantings assigned to this lot will become unassigned.
+              </p>
+            )}
+            <p className="text-sm text-gray-600">
+              This action cannot be undone.
+            </p>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
+// Drag Preview Component with Smart Scoring
+const DragPreview: React.FC<{ dragPreview: any; draggedPlanting: any }> = ({ dragPreview, draggedPlanting }) => {
+  if (!dragPreview || !draggedPlanting) return null;
+  
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return 'text-green-600';
+    if (score >= 60) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getScoreLabel = (score: number) => {
+    if (score >= 80) return 'Excellent';
+    if (score >= 60) return 'Good';
+    if (score >= 40) return 'Fair';
+    return 'Poor';
+  };
+  
+  return (
+    <div className={`fixed z-50 p-3 rounded-lg border-2 pointer-events-none shadow-lg ${
+      dragPreview.planting?.canFit ? 'border-green-400 bg-green-50' : 
+      dragPreview.planting?.willRequireSplit ? 'border-orange-400 bg-orange-50' :
+      'border-red-400 bg-red-50'
+    }`} style={{ top: '10px', right: '10px', minWidth: '240px' }}>
+      {dragPreview.planting?.canFit ? (
+        <div className="text-green-800">
+          <div className="flex items-center gap-2 font-medium">
+            <CheckCircle size={16} />
+            ✅ Fits in Lot
+          </div>
+          <div className="text-sm mt-1">
+            Will use {draggedPlanting.acres} of {dragPreview.planting?.availableAcres} available acres
+          </div>
+          {dragPreview.planting?.optimizationScore >= 0 && (
+            <div className="flex items-center gap-2 mt-2">
+              <Target size={12} />
+              <span className={`text-sm font-medium ${getScoreColor(dragPreview.planting.optimizationScore)}`}>
+                {getScoreLabel(dragPreview.planting.optimizationScore)} ({Math.round(dragPreview.planting.optimizationScore)} pts)
+              </span>
+            </div>
+          )}
+          {dragPreview.planting?.rotationWarning && (
+            <div className="flex items-center gap-1 mt-1 text-xs text-red-600">
+              <AlertCircle size={10} />
+              Crop rotation concern
+            </div>
+          )}
+        </div>
+      ) : dragPreview.planting?.willRequireSplit ? (
+        <div className="text-orange-800">
+          <div className="flex items-center gap-2 font-medium">
+            <AlertCircle size={16} />
+            ⚠️ Requires Split
+          </div>
+          <div className="text-sm mt-1">
+            Can fit {dragPreview.planting?.availableAcres} of {draggedPlanting.acres} acres
+          </div>
+          <div className="text-xs mt-1">
+            {draggedPlanting.acres - dragPreview.planting?.availableAcres} acres will remain unassigned
+          </div>
+          {dragPreview.planting?.optimizationScore >= 0 && (
+            <div className="flex items-center gap-2 mt-2">
+              <Target size={12} />
+              <span className={`text-sm font-medium ${getScoreColor(dragPreview.planting.optimizationScore)}`}>
+                {getScoreLabel(dragPreview.planting.optimizationScore)} ({Math.round(dragPreview.planting.optimizationScore)} pts)
+              </span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="text-red-800">
+          <div className="flex items-center gap-2 font-medium">
+            <X size={16} />
+            ❌ No Capacity
+          </div>
+          <div className="text-sm mt-1">
+            Lot is full - {dragPreview.planting?.wouldExceedBy} acres over capacity
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Smart Suggestions Panel Component
+const SmartSuggestionsPanel: React.FC<{ suggestions: any[]; draggedPlanting: any; isDragging?: boolean }> = ({ suggestions, draggedPlanting, isDragging = false }) => {
+  if (!suggestions || suggestions.length === 0 || !draggedPlanting) return null;
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return 'bg-green-100 text-green-800 border-green-200';
+    if (score >= 60) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    return 'bg-red-100 text-red-800 border-red-200';
+  };
+
+  const getScoreIcon = (score: number) => {
+    if (score >= 80) return <TrendingUp size={14} className="text-green-600" />;
+    if (score >= 60) return <Target size={14} className="text-yellow-600" />;
+    return <AlertCircle size={14} className="text-red-600" />;
+  };
+
+  return (
+    <div className="fixed top-4 left-4 bg-white rounded-lg shadow-lg border p-4 z-40 max-w-sm">
+      <div className="flex items-center gap-2 mb-3 text-gray-900 font-medium">
+        <Target size={16} className="text-blue-600" />
+        {isDragging ? '🎯 Smart Recommendations' : '💡 Best Lot Options'}
+      </div>
+      <div className="text-xs text-gray-600 mb-3">
+        For: <span className="font-medium">{draggedPlanting.crop} - {draggedPlanting.variety}</span> 
+        ({draggedPlanting.acres} acres)
+      </div>
+      <div className="space-y-2">
+        {suggestions.slice(0, 3).map((suggestion, index) => (
+          <div 
+            key={suggestion.lotId || index}
+            className={`p-2 rounded border text-xs ${getScoreColor(suggestion.score)}`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-1">
+                {getScoreIcon(suggestion.score)}
+                <span className="font-medium">#{index + 1}</span>
+              </div>
+              <span className="font-bold">{Math.round(suggestion.score)} pts</span>
+            </div>
+            <div className="font-medium text-xs mb-1">
+              {suggestion.location || `${suggestion.region?.region} > ${suggestion.ranch?.name} > Lot ${suggestion.lot?.number}`}
+            </div>
+            <div className="text-xs opacity-90">
+              {suggestion.fitType === 'perfect' ? '✅ Perfect fit' : 
+               suggestion.fitType === 'split' ? '⚠️ Requires split' : '❌ No capacity'}
+            </div>
+            {suggestion.reasons && suggestion.reasons.length > 0 && (
+              <div className="text-xs opacity-75 mt-1">
+                {suggestion.reasons.slice(0, 2).join(', ')}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="text-xs text-gray-500 mt-2">
+        {isDragging 
+          ? '💡 Drag to any suggested lot for optimal placement'
+          : '🚀 Start dragging to assign to suggested lots'
+        }
+      </div>
     </div>
   );
 };
