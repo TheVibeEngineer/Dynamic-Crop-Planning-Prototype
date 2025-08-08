@@ -2,6 +2,8 @@
 // NOT FOUND PAGE - 404 error page
 // =============================================================================
 
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/common';
