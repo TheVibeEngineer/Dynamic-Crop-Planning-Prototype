@@ -2,7 +2,7 @@
 // USE PLANTINGS HOOK - Plantings state management with optimization
 // =============================================================================
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Planting } from '@/types/planning';
 import type { Order } from '@/types/orders';
 import type { Commodity } from '@/types/commodities';
@@ -17,8 +17,13 @@ import { capacityService } from '@/lib/services/capacity';
 export const usePlantings = (
   orders: Order[], 
   commodities: Commodity[], 
-  landStructure: Region[]
-): PlantingsActions & { plantings: Planting[] } => {
+  landStructure?: Region[]
+): PlantingsActions & { 
+  plantings: Planting[];
+  setLandStructure: (landStructure: Region[]) => void;
+} => {
+  // Store landStructure in a ref so it can be updated externally
+  const landStructureRef = useRef<Region[]>(landStructure || []);
   // Initialize with saved data or empty array
   const [plantings, setPlantings] = useState<Planting[]>(() => {
     return persistenceService.load(STORAGE_KEYS.PLANTINGS, []);
@@ -28,6 +33,11 @@ export const usePlantings = (
   useEffect(() => {
     persistenceService.save(STORAGE_KEYS.PLANTINGS, plantings);
   }, [plantings]);
+
+  // Function to update land structure reference
+  const setLandStructure = (newLandStructure: Region[]) => {
+    landStructureRef.current = newLandStructure;
+  };
 
   const generatePlantings = () => {
     console.log('🌱 Generating plantings from', orders.length, 'orders and', commodities.length, 'commodities');
@@ -49,7 +59,12 @@ export const usePlantings = (
       return { success: false, type: 'not_found' };
     }
     
-    const region = landStructure.find(r => r.id === regionId);
+    const currentLandStructure = landStructureRef.current;
+    if (!currentLandStructure || currentLandStructure.length === 0) {
+      return { success: false, type: 'no_land_structure' };
+    }
+    
+    const region = currentLandStructure.find(r => r.id === regionId);
     const ranch = region?.ranches.find(r => r.id === ranchId);
     const lot = ranch?.lots.find(l => l.id === lotId);
     
@@ -62,7 +77,7 @@ export const usePlantings = (
       regionId, 
       ranchId, 
       lotId, 
-      landStructure, 
+      currentLandStructure, 
       plantings
     );
     
@@ -92,7 +107,7 @@ export const usePlantings = (
       return { success: true, type: 'assigned' };
     } else {
       // Check if partial assignment is possible
-      const capacity = capacityService.calculateLotCapacity(regionId, ranchId, lotId, landStructure, plantings);
+      const capacity = capacityService.calculateLotCapacity(regionId, ranchId, lotId, currentLandStructure, plantings);
       
       if (capacity.availableAcres > 0) {
         return { 
@@ -141,9 +156,15 @@ export const usePlantings = (
     onSplitNotification?: (notification: SplitNotification) => void, 
     onOptimizationComplete?: (results: OptimizationResults) => void
   ) => {
+    const currentLandStructure = landStructureRef.current;
+    if (!currentLandStructure || currentLandStructure.length === 0) {
+      console.warn('Cannot optimize: no land structure available');
+      return [];
+    }
+    
     const assignments = optimizationEngine.optimizeAllPlantings(
       plantings, 
-      landStructure, 
+      currentLandStructure, 
       onSplitNotification || (() => {})
     );
     
@@ -218,5 +239,5 @@ export const usePlantings = (
     return assignments;
   };
 
-  return { plantings, generatePlantings, assignPlantingToLot, unassignPlanting, optimizeAllPlantings };
+  return { plantings, generatePlantings, assignPlantingToLot, unassignPlanting, optimizeAllPlantings, setLandStructure };
 };

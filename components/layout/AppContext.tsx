@@ -4,7 +4,7 @@
 
 'use client';
 
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import { useCommodities } from '@/hooks/useCommodities';
 import { useLandManagement } from '@/hooks/useLandManagement';
@@ -96,7 +96,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   // Initialize all hooks
   const { orders, addOrder, updateOrder, deleteOrder } = useOrders();
   const { commodities, addCommodity, updateCommodity, deleteCommodity, addVariety, updateVariety, deleteVariety, duplicateVariety } = useCommodities();
-  const { plantings, generatePlantings, assignPlantingToLot, unassignPlanting, optimizeAllPlantings } = usePlantings(orders, commodities, []);
+  
+  // Initialize all hooks with proper dependencies
+  const { plantings, generatePlantings, assignPlantingToLot, unassignPlanting, optimizeAllPlantings, setLandStructure } = usePlantings(orders, commodities);
   const { 
     landStructure, 
     addRegion, 
@@ -110,6 +112,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     deleteLot, 
     findLot 
   } = useLandManagement(plantings, unassignPlanting);
+  
+  // Inject land structure into plantings hook
+  useEffect(() => {
+    setLandStructure(landStructure);
+  }, [landStructure, setLandStructure]);
   
   // Notifications and optimization
   const { splitNotification, showSplitNotification, clearSplitNotification } = useSplitNotifications();

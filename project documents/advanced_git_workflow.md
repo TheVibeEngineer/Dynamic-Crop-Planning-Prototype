@@ -44,21 +44,36 @@ git checkout dev
 git pull origin dev
 ```
 
-### Step 2: Do Your Development Work
+### Step 2: Set Up Your Development Environment
+```bash
+# Start your development servers
+npm run dev                    # Start dev server
+npm test -- --watch          # Start tests in watch mode (separate terminal)
+
+# Now both run automatically:
+# - Code changes trigger hot reload in browser
+# - Test changes trigger test re-runs in terminal
+```
+
+### Step 3: Do Your Development Work
 ```bash
 # Check what you're working on
 git status
 
 # Make your changes in Cursor...
 # Edit components/CropPlanningApp.tsx, etc.
+# Watch tests update automatically as you code!
 ```
 
-### Step 3: Save Your Work to Dev Branch
+### Step 4: Save Your Work to Dev Branch
 ```bash
 # Stage your changes
 git add .
 
-# Commit with descriptive message
+# 🧪 RUN TESTS BEFORE COMMITTING
+npm test                      # Make sure all tests pass!
+
+# Commit with descriptive message (only if tests pass)
 git commit -m "Add data persistence feature"
 
 # Push to dev branch
@@ -71,6 +86,11 @@ git push origin dev
 
 ### When Your Dev Code is Ready for Production
 ```bash
+# 🧪 FIRST: Run full test suite with coverage on dev
+git checkout dev
+npm test -- --coverage       # Run full test suite with coverage
+# Only proceed if ALL tests pass!
+
 # Switch to main branch
 git checkout main
 
@@ -94,6 +114,47 @@ Instead of direct merge, create a Pull Request on GitHub:
 3. Set: `dev` → `main`
 4. Add description of changes
 5. Review and merge via GitHub interface
+
+---
+
+## 🧪 Testing Strategy for Your Dev Workflow
+
+### Daily Development Testing
+```bash
+# Start your day
+npm run dev                    # Start dev server
+npm test -- --watch          # Start tests in watch mode (separate terminal)
+
+# Now both run automatically:
+# - Code changes trigger hot reload in browser
+# - Test changes trigger test re-runs in terminal
+```
+
+### Before Committing (Your Git Workflow)
+```bash
+# Current workflow:
+git checkout dev
+git add .
+npm test                      # ADD THIS: Run tests before commit
+git commit -m "Add new feature"
+git push origin dev
+```
+
+### Before Merging to Main
+```bash
+# Before promoting dev → main:
+git checkout dev
+npm test -- --coverage       # Run full test suite with coverage
+# Only merge if tests pass!
+git checkout main
+git merge dev
+```
+
+### Testing Best Practices
+- 🔄 **Watch mode during development** - Instant feedback on code changes
+- ✅ **Test before every commit** - Never commit broken code to dev
+- 📊 **Coverage before main** - Ensure comprehensive testing before production
+- 🚨 **Never skip tests** - A few seconds of testing saves hours of debugging
 
 ---
 
@@ -135,12 +196,20 @@ git branch -d feature/new-gantt-improvements  # Delete feature branch
 
 ### Daily Development
 - **Always work on `dev` branch** for new features
+- **Run tests in watch mode** during development
+- **Test before every commit** to dev
 - **Commit frequently** to dev (multiple times per day)
 - **Keep main stable** (only merge tested code)
 
+### Testing Integration
+- **🧪 Start with tests running** - `npm test -- --watch` at the beginning of each day
+- **🔍 Test before commit** - `npm test` must pass before `git commit`
+- **📊 Coverage before main** - `npm test -- --coverage` before merging to main
+- **⚡ Instant feedback** - Watch mode gives immediate test results
+
 ### Branch Hygiene
-- **`main` = always deployable** (never commit directly)
-- **`dev` = active development** (can be unstable)
+- **`main` = always deployable** (never commit directly, always tested)
+- **`dev` = active development** (can be unstable, but always tested before commit)
 - **Test thoroughly** before merging dev → main
 
 ### Commit Messages by Branch
@@ -196,7 +265,8 @@ git merge main
 ```bash
 # Test on dev branch
 git checkout dev
-npm run build        # Make sure it builds
+npm test            # Run all tests first
+npm run build       # Make sure it builds
 npm run dev         # Test locally
 
 # When satisfied, promote to main
@@ -249,14 +319,18 @@ git push origin v1.0.0
 ```bash
 git checkout dev          # Start on dev
 git pull origin dev       # Get updates
+npm test -- --watch      # Start tests in watch mode
 # ... do work ...
 git add .                 # Stage changes
+npm test                  # Test before commit
 git commit -m "..."       # Commit to dev
 git push origin dev       # Push to dev
 ```
 
 ### Weekly Commands
 ```bash
+git checkout dev          # Make sure on dev
+npm test -- --coverage   # Full test suite with coverage
 git checkout main         # Switch to main
 git pull origin main      # Get latest main
 git merge dev            # Merge dev → main
