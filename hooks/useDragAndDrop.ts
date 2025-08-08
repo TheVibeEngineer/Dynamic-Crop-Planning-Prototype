@@ -3,7 +3,8 @@
 // =============================================================================
 
 import { useState } from 'react';
-import type { Planting, SplitNotification } from '@/types/planning';
+import type { Planting } from '@/types/planning';
+import type { SplitNotification } from '@/types/common';
 import type { Region } from '@/types/land';
 import type { SmartSuggestion, DragPreview, DragAndDropHandlers } from '@/types/common';
 import { optimizationEngine } from '@/lib/services/optimization';

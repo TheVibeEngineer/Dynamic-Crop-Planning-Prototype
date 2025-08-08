@@ -2,6 +2,8 @@
 // ORDERS FEATURE - Order management interface
 // =============================================================================
 
+'use client';
+
 import React, { useState } from 'react';
 import type { Order } from '@/types/orders';
 import type { Commodity } from '@/types/commodities';

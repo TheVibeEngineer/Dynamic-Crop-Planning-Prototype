@@ -74,9 +74,9 @@ export const optimizationEngine = {
     const daysSinceLastPlant = (Date.now() - lastPlantDate.getTime()) / (1000 * 60 * 60 * 24);
     
     // Check if crops conflict
-    const conflicts = CROP_ROTATION_RULES.rotationConflicts[cropName] || [];
+    const conflicts = (CROP_ROTATION_RULES.rotationConflicts as any)[cropName] || [];
     if (conflicts.includes(lot.lastCrop)) {
-      const minimumDays = CROP_ROTATION_RULES.minimumRotationDays[cropName] || 90;
+      const minimumDays = (CROP_ROTATION_RULES.minimumRotationDays as any)[cropName] || 90;
       if (daysSinceLastPlant < minimumDays) {
         return -50; // Strong penalty for recent rotation conflict
       } else if (daysSinceLastPlant < minimumDays * 1.5) {

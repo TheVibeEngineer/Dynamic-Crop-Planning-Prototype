@@ -2,6 +2,8 @@
 // MODAL COMPONENT - Reusable modal dialog
 // =============================================================================
 
+'use client';
+
 import React from 'react';
 import { Button } from './Button';
 

@@ -15,5 +15,4 @@ export * from './land';
 export * from './planning';
 export * from './data';
 
-// Legacy components (archived)
-export * from './legacy';
+// Legacy components removed - fully modularized!

@@ -5,6 +5,9 @@
 'use client';
 
 import React from 'react';
+
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
 import { OrdersFeature } from '@/components/orders';
 import { useAppContext } from '@/components/layout';
 

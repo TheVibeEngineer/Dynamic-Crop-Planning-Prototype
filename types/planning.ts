@@ -57,7 +57,7 @@ export interface PlantingsState {
 
 export interface PlantingsActions {
   generatePlantings: () => void;
-  assignPlantingToLot: (plantingId: string, regionId: number, ranchId: number, lotId: number, onSplitNotification?: (notification: SplitNotification) => void) => any;
+  assignPlantingToLot: (plantingId: string, regionId: number, ranchId: number, lotId: number, onSplitNotification?: (notification: any) => void) => any;
   unassignPlanting: (plantingId: string) => any;
   optimizeAllPlantings: (onSplit?: (notification: any) => void, onResults?: (results: any) => void) => any;
 }
@@ -81,37 +81,7 @@ export interface PlanningMetrics {
   utilizationRate: number;
 }
 
-export interface SplitNotification {
-  plantingId: string;
-  crop: string;
-  variety: string;
-  originalAcres: number;
-  assignedAcres: number;
-  remainingAcres: number;
-  lotLocation: string;
-}
+// SplitNotification interface moved to common.ts to avoid duplicates
 
-export interface OptimizationResults {
-  assignments: Array<{
-    plantingId: string;
-    crop: string;
-    variety: string;
-    acres: number;
-    recommendedLot: {
-      regionId: number;
-      ranchId: number;
-      lotId: number;
-      sublot: string;
-      location: string;
-    };
-    score: number;
-    reasons: string[];
-  }>;
-  summary: {
-    totalPlantings: number;
-    successfulAssignments: number;
-    totalAcresOptimized: number;
-    averageScore: number;
-  };
-}
+// OptimizationResults interface moved to common.ts to avoid duplicates
 

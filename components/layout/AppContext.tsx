@@ -15,8 +15,8 @@ import { csvService } from '@/lib/services/csv';
 import type { Order } from '@/types/orders';
 import type { Commodity } from '@/types/commodities';
 import type { Region } from '@/types/land';
-import type { Planting, SplitNotification, OptimizationResults } from '@/types/planning';
-import type { DragPreview } from '@/types/common';
+import type { Planting } from '@/types/planning';
+import type { DragAndDropHandlers, OptimizationResults, SplitNotification } from '@/types/common';
 
 // Define the context type
 export interface AppContextType {
@@ -54,19 +54,12 @@ export interface AppContextType {
   
   // Planting actions
   generatePlantings: () => void;
-  assignPlantingToLot: (plantingId: string, regionId: number, ranchId: number, lotId: number) => void;
-  unassignPlanting: (plantingId: string) => void;
+  assignPlantingToLot: (plantingId: string, regionId: number, ranchId: number, lotId: number, onSplitNotification?: (notification: SplitNotification) => void) => any;
+  unassignPlanting: (plantingId: string, onRecombineNotification?: (notification: any) => void) => any;
   optimizeAllPlantings: () => void;
   
   // Drag and drop
-  dragHandlers: {
-    handleDragStart: (e: any, planting: Planting) => void;
-    handleDragOver: (e: any, regionId: number, ranchId: number, lotId: number) => void;
-    handleDrop: (e: any, regionId: number, ranchId: number, lotId: number) => void;
-    handleDragEnd: () => void;
-    draggedPlanting: Planting | null;
-    dragPreview: DragPreview | null;
-  };
+  dragHandlers: DragAndDropHandlers;
   
   // Notifications
   splitNotification: SplitNotification | null;

@@ -60,12 +60,4 @@ export interface LandManagementActions {
   findLot: (regionId: number, ranchId: number, lotId: number) => Lot | undefined;
 }
 
-export interface DragAndDropHandlers {
-  handleDragStart: (e: React.DragEvent, planting: any) => void;
-  handleDragOver: (e: React.DragEvent) => void;
-  handleDragLeave: (e: React.DragEvent) => void;
-  handleDrop: (e: React.DragEvent, regionId: number, ranchId: number, lotId: number) => void;
-  dragPreview: any;
-  draggedPlanting: any;
-  smartSuggestions: any[];
-}
+// DragAndDropHandlers interface moved to common.ts to avoid duplicates

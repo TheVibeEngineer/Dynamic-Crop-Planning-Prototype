@@ -2,6 +2,8 @@
 // BUTTON COMPONENT - Reusable button with variants
 // =============================================================================
 
+'use client';
+
 import React from 'react';
 
 export interface ButtonProps {

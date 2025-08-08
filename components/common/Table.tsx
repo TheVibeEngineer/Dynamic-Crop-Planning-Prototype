@@ -2,6 +2,8 @@
 // TABLE COMPONENT - Reusable data table
 // =============================================================================
 
+'use client';
+
 import React from 'react';
 
 export interface TableColumn {
