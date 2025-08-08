@@ -42,6 +42,7 @@ export const PLANT_TYPES = [
 ] as const;
 
 export const BED_SIZES = [
+  '38-2',
   '40"',
   '60"',
   '80"',

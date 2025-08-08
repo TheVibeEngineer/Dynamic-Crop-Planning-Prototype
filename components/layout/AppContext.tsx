@@ -32,9 +32,13 @@ export interface AppContextType {
   deleteOrder: (id: number) => void;
   
   // Commodity actions
+  addCommodity: (commodityData: any) => void;
+  updateCommodity: (commodityId: number, commodityData: any) => void;
+  deleteCommodity: (commodityId: number) => void;
   addVariety: (commodityName: string, variety: any) => void;
   updateVariety: (commodityName: string, varietyId: number, variety: any) => void;
   deleteVariety: (commodityName: string, varietyId: number) => void;
+  duplicateVariety: (commodityName: string, varietyId: number) => void;
   
   // Land actions
   addRegion: (region: Partial<Region>) => void;
@@ -91,7 +95,7 @@ export interface AppProviderProps {
 export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   // Initialize all hooks
   const { orders, addOrder, updateOrder, deleteOrder } = useOrders();
-  const { commodities, addVariety, updateVariety, deleteVariety } = useCommodities();
+  const { commodities, addCommodity, updateCommodity, deleteCommodity, addVariety, updateVariety, deleteVariety, duplicateVariety } = useCommodities();
   const { plantings, generatePlantings, assignPlantingToLot, unassignPlanting, optimizeAllPlantings } = usePlantings(orders, commodities, []);
   const { 
     landStructure, 
@@ -145,9 +149,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     deleteOrder,
     
     // Commodity actions
+    addCommodity,
+    updateCommodity,
+    deleteCommodity,
     addVariety,
     updateVariety,
     deleteVariety,
+    duplicateVariety,
     
     // Land actions
     addRegion,

@@ -125,5 +125,55 @@ export const useCommodities = (): CommoditiesActions & { commodities: Commodity[
     ));
   };
 
-  return { commodities, addVariety, updateVariety, deleteVariety };
+  const addCommodity = (commodityData: Partial<Commodity>) => {
+    const commodityWithId: Commodity = {
+      id: Date.now(),
+      name: commodityData.name || '',
+      varieties: commodityData.varieties || []
+    };
+    
+    setCommodities((prev) => [...prev, commodityWithId]);
+  };
+
+  const updateCommodity = (commodityId: number, commodityData: Partial<Commodity>) => {
+    setCommodities((prev) => prev.map((c) => 
+      c.id === commodityId 
+        ? { ...c, ...commodityData, id: commodityId }
+        : c
+    ));
+  };
+
+  const deleteCommodity = (commodityId: number) => {
+    setCommodities((prev) => prev.filter((c) => c.id !== commodityId));
+  };
+
+  const duplicateVariety = (commodityName: string, varietyId: number) => {
+    const commodity = commodities.find(c => c.name === commodityName);
+    const variety = commodity?.varieties.find(v => v.id === varietyId);
+    
+    if (variety) {
+      const duplicatedVariety: Variety = {
+        ...variety,
+        id: Date.now(),
+        name: `${variety.name} (Copy)`
+      };
+      
+      setCommodities((prev) => prev.map((c) => 
+        c.name === commodityName 
+          ? { ...c, varieties: [...c.varieties, duplicatedVariety] }
+          : c
+      ));
+    }
+  };
+
+  return { 
+    commodities, 
+    addCommodity,
+    updateCommodity,
+    deleteCommodity,
+    addVariety, 
+    updateVariety, 
+    deleteVariety,
+    duplicateVariety
+  };
 };

@@ -32,7 +32,11 @@ export interface Commodity {
  * Actions for managing commodities
  */
 export interface CommoditiesActions {
+  addCommodity: (commodityData: Partial<Commodity>) => void;
+  updateCommodity: (commodityId: number, commodityData: Partial<Commodity>) => void;
+  deleteCommodity: (commodityId: number) => void;
   addVariety: (commodityName: string, varietyData: Partial<Variety>) => void;
   updateVariety: (commodityName: string, varietyId: number, varietyData: Partial<Variety>) => void;
   deleteVariety: (commodityName: string, varietyId: number) => void;
+  duplicateVariety: (commodityName: string, varietyId: number) => void;
 }
