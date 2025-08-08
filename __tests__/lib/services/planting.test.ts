@@ -260,4 +260,148 @@ describe('Planting Service', () => {
       expect(unassignedRemainder.parentPlantingId).toBe('original-parent');
     });
   });
+
+  describe('recombineSplitPlantings', () => {
+    it('should recombine unassigned split plantings with same parent', () => {
+      const originalPlanting: Planting = {
+        id: 'original-1',
+        crop: 'Lettuce',
+        variety: 'Test Variety',
+        acres: 10,
+        plantDate: '2024-03-01',
+        harvestDate: '2024-05-15',
+        marketType: 'Fresh Cut',
+        customer: 'Test Customer',
+        volumeOrdered: 2000,
+        totalYield: 2000,
+        budgetYieldPerAcre: 200,
+        assigned: false,
+        originalOrderId: '1',
+        budgetedDaysToHarvest: 75,
+        bedSize: 6,
+        spacing: 4,
+        budgetedHarvestDate: '2024-05-15',
+        idealStandPerAcre: 100000
+      };
+
+      // Create split plantings
+      const splitPlanting1: Planting = {
+        ...originalPlanting,
+        id: 'original-1_split_1',
+        acres: 6,
+        totalYield: 1200,
+        splitSequence: 1,
+        parentPlantingId: 'original-1',
+        splitTimestamp: '2024-01-01T00:00:00.000Z',
+        assigned: false
+      };
+
+      const splitPlanting2: Planting = {
+        ...originalPlanting,
+        id: 'original-1_split_2',
+        acres: 4,
+        totalYield: 800,
+        splitSequence: 2,
+        parentPlantingId: 'original-1',
+        splitTimestamp: '2024-01-01T00:00:00.000Z',
+        assigned: false
+      };
+
+      const plantings = [splitPlanting1, splitPlanting2];
+
+      const { recombined, recombinations } = plantingService.recombineSplitPlantings(plantings);
+
+      expect(recombinations).toHaveLength(1);
+      expect(recombinations[0]).toEqual({
+        parentId: 'original-1',
+        combinedAcres: 10,
+        splitCount: 2
+      });
+
+      expect(recombined).toHaveLength(1);
+      expect(recombined[0]).toEqual({
+        ...originalPlanting,
+        id: 'original-1',
+        acres: 10,
+        totalYield: 2000,
+        splitSequence: undefined,
+        parentPlantingId: undefined,
+        splitTimestamp: undefined,
+        assigned: false
+      });
+    });
+
+    it('should not recombine if one split planting is assigned', () => {
+      const splitPlanting1: Planting = {
+        id: 'original-1_split_1',
+        crop: 'Lettuce',
+        variety: 'Test Variety',
+        acres: 6,
+        plantDate: '2024-03-01',
+        harvestDate: '2024-05-15',
+        marketType: 'Fresh Cut',
+        customer: 'Test Customer',
+        volumeOrdered: 1200,
+        totalYield: 1200,
+        budgetYieldPerAcre: 200,
+        splitSequence: 1,
+        parentPlantingId: 'original-1',
+        splitTimestamp: '2024-01-01T00:00:00.000Z',
+        assigned: true, // This one is assigned
+        originalOrderId: '1',
+        budgetedDaysToHarvest: 75,
+        bedSize: 6,
+        spacing: 4,
+        budgetedHarvestDate: '2024-05-15',
+        idealStandPerAcre: 100000
+      };
+
+      const splitPlanting2: Planting = {
+        ...splitPlanting1,
+        id: 'original-1_split_2',
+        acres: 4,
+        totalYield: 800,
+        splitSequence: 2,
+        assigned: false // This one is unassigned
+      };
+
+      const plantings = [splitPlanting1, splitPlanting2];
+
+      const { recombined, recombinations } = plantingService.recombineSplitPlantings(plantings);
+
+      expect(recombinations).toHaveLength(0);
+      expect(recombined).toHaveLength(2); // Both plantings kept separate
+      expect(recombined).toEqual(plantings);
+    });
+
+    it('should handle plantings with no parent (not split)', () => {
+      const regularPlanting: Planting = {
+        id: 'regular-1',
+        crop: 'Lettuce',
+        variety: 'Test Variety',
+        acres: 5,
+        plantDate: '2024-03-01',
+        harvestDate: '2024-05-15',
+        marketType: 'Fresh Cut',
+        customer: 'Test Customer',
+        volumeOrdered: 1000,
+        totalYield: 1000,
+        budgetYieldPerAcre: 200,
+        assigned: false,
+        originalOrderId: '1',
+        budgetedDaysToHarvest: 75,
+        bedSize: 6,
+        spacing: 4,
+        budgetedHarvestDate: '2024-05-15',
+        idealStandPerAcre: 100000
+      };
+
+      const plantings = [regularPlanting];
+
+      const { recombined, recombinations } = plantingService.recombineSplitPlantings(plantings);
+
+      expect(recombinations).toHaveLength(0);
+      expect(recombined).toEqual(plantings);
+    });
+  });
 });

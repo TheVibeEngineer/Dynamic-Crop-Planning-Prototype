@@ -41,6 +41,8 @@ export interface LandFeatureProps {
   clearOptimizationResults: () => void;
   isOptimizing?: boolean;
   setIsOptimizing?: (value: boolean) => void;
+  recombineNotification?: any | null;
+  clearRecombineNotification?: () => void;
 }
 
 export const LandFeature: React.FC<LandFeatureProps> = ({ 
@@ -50,6 +52,8 @@ export const LandFeature: React.FC<LandFeatureProps> = ({
   landManagement,
   splitNotification,
   clearSplitNotification,
+  recombineNotification,
+  clearRecombineNotification,
   optimizeAllPlantings,
   optimizationResults,
   clearOptimizationResults,
@@ -792,24 +796,87 @@ export const LandFeature: React.FC<LandFeatureProps> = ({
       </Modal>
 
       {/* Split Notification */}
-      {splitNotification && (
-        <div className="fixed inset-0 bg-black bg-opacity-10 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              ✂️ Planting Split Required
-            </h3>
-            <div className="space-y-2 text-sm">
-              <div><strong>Crop:</strong> {splitNotification.crop} - {splitNotification.variety}</div>
-              <div><strong>Original Size:</strong> {splitNotification.originalAcres} acres</div>
-              <div><strong>Assigned:</strong> {splitNotification.assignedAcres} acres to Lot {splitNotification.lotLocation}</div>
-              <div><strong>Remaining:</strong> {splitNotification.remainingAcres} acres (unassigned)</div>
+      <Modal
+        isOpen={!!splitNotification}
+        onClose={clearSplitNotification}
+        title="✂️ Planting Split Successfully"
+        size="md"
+        footer={
+          <Button onClick={clearSplitNotification}>Got it!</Button>
+        }
+      >
+        {splitNotification && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+              <div className="text-blue-600 text-2xl">✂️</div>
+              <div>
+                <div className="font-medium text-blue-900">
+                  Planting was automatically split due to lot capacity
+                </div>
+                <div className="text-sm text-blue-700">
+                  {splitNotification.crop} - {splitNotification.variety}
+                </div>
+              </div>
             </div>
-            <div className="mt-6 flex justify-end">
-              <Button onClick={clearSplitNotification}>Got it</Button>
+            
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="text-sm font-medium text-gray-800 mb-2">Split Summary:</div>
+              <div className="text-sm text-gray-600 space-y-1">
+                <div><strong>Original:</strong> {splitNotification.originalAcres} acres</div>
+                <div><strong>Assigned:</strong> {splitNotification.assignedAcres} acres to {splitNotification.lotLocation}</div>
+                <div><strong>Remaining:</strong> {splitNotification.remainingAcres} acres (unassigned)</div>
+              </div>
+            </div>
+            
+            <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
+              <strong>💡 Tip:</strong> The remaining {splitNotification.remainingAcres} acres will appear in the unassigned plantings list. 
+              You can drag it to another lot with sufficient capacity.
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
+
+      {/* Recombine Notification */}
+      <Modal
+        isOpen={!!recombineNotification}
+        onClose={clearRecombineNotification || (() => {})}
+        title="🔄 Plantings Recombined Successfully"
+        size="md"
+        footer={
+          <Button onClick={clearRecombineNotification || (() => {})}>Got it!</Button>
+        }
+      >
+        {recombineNotification && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+              <div className="text-green-600 text-2xl">🔄</div>
+              <div>
+                <div className="font-medium text-green-900">
+                  Split plantings were automatically recombined
+                </div>
+                <div className="text-sm text-green-700">
+                  {recombineNotification.crop} - {recombineNotification.variety}
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="text-sm font-medium text-gray-800 mb-2">Recombination Summary:</div>
+              <div className="text-sm text-gray-600 space-y-1">
+                <div><strong>Combined:</strong> {recombineNotification.splitCount} split plantings</div>
+                <div><strong>Total Acres:</strong> {recombineNotification.combinedAcres} acres</div>
+                <div><strong>Status:</strong> Unassigned (ready for new placement)</div>
+              </div>
+            </div>
+            
+            <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
+              <strong>✨ Smart Feature:</strong> When all parts of a split planting become unassigned, 
+              they automatically recombine back into the original planting. You can now drag this 
+              {recombineNotification.combinedAcres}-acre planting to any suitable lot.
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Optimization Results */}
       {optimizationResults && (

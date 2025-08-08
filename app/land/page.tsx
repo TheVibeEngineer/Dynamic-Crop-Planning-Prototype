@@ -24,6 +24,8 @@ export default function LandPage() {
     deleteLot,
     splitNotification,
     clearSplitNotification,
+    recombineNotification,
+    clearRecombineNotification,
     optimizeAllPlantings,
     optimizationResults,
     clearOptimizationResults,
@@ -51,6 +53,8 @@ export default function LandPage() {
       landManagement={landManagement}
       splitNotification={splitNotification}
       clearSplitNotification={clearSplitNotification}
+      recombineNotification={recombineNotification}
+      clearRecombineNotification={clearRecombineNotification}
       optimizeAllPlantings={optimizeAllPlantings}
       optimizationResults={optimizationResults}
       clearOptimizationResults={clearOptimizationResults}

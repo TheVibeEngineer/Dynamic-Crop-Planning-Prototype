@@ -10,12 +10,13 @@ import { optimizationEngine } from '@/lib/services/optimization';
 import { capacityService } from '@/lib/services/capacity';
 
 export const useDragAndDrop = (
-  assignPlantingToLot: (plantingId: string, regionId: number, ranchId: number, lotId: number) => any,
-  unassignPlanting: (plantingId: string) => any,
+  assignPlantingToLot: (plantingId: string, regionId: number, ranchId: number, lotId: number, onSplitNotification?: (notification: SplitNotification) => void) => any,
+  unassignPlanting: (plantingId: string, onRecombineNotification?: (notification: any) => void) => any,
   findLot: (regionId: number, ranchId: number, lotId: number) => any,
   landStructure: Region[],
   plantings: Planting[],
-  showSplitNotification: (notification: SplitNotification) => void
+  showSplitNotification: (notification: SplitNotification) => void,
+  showRecombineNotification?: (notification: any) => void
 ): DragAndDropHandlers => {
   const [draggedPlanting, setDraggedPlanting] = useState<Planting | null>(null);
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
@@ -101,16 +102,20 @@ export const useDragAndDrop = (
         draggedPlanting.id, 
         regionId, 
         ranchId, 
-        lotId
+        lotId,
+        showSplitNotification
       );
       
       if (!result.success) {
-        if (result.type === 'partial_fit') {
-          // Could offer split option here
-          alert(`${result.message}. Would you like to split this planting?`);
-        } else if (result.type === 'no_capacity') {
+        if (result.type === 'no_capacity') {
           alert(result.message);
+        } else {
+          // Handle other error types
+          alert(`Failed to assign planting: ${result.message || result.type}`);
         }
+      } else if (result.type === 'split') {
+        // Split was successful - notification already shown via callback
+        console.log(`✅ Split successful: ${result.assignedAcres} acres assigned, ${result.remainingAcres} acres remaining`);
       }
       setDraggedPlanting(null);
     }
@@ -122,10 +127,12 @@ export const useDragAndDrop = (
     setSmartSuggestions([]);
     
     if (draggedPlanting && draggedPlanting.assigned) {
-      const result = unassignPlanting(draggedPlanting.id);
+      const result = unassignPlanting(draggedPlanting.id, showRecombineNotification);
       
       if (!result.success) {
         alert('Failed to unassign planting');
+      } else {
+        console.log(`✅ Unassigned planting: ${draggedPlanting.crop} - ${draggedPlanting.variety}`);
       }
       setDraggedPlanting(null);
     }

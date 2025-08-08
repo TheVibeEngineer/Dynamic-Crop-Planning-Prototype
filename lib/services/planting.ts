@@ -113,5 +113,79 @@ export const plantingService = {
     };
 
     return { assignedPortion, unassignedRemainder };
+  },
+
+  // Check if plantings can be recombined and do so
+  recombineSplitPlantings: (plantings: Planting[]): { 
+    recombined: Planting[], 
+    recombinations: Array<{ parentId: string, combinedAcres: number, splitCount: number }>
+  } => {
+    const recombinations: Array<{ parentId: string, combinedAcres: number, splitCount: number }> = [];
+    const recombinedPlantings: Planting[] = [];
+    const processedParentIds = new Set<string>();
+    
+    // Group plantings by parent ID
+    const parentGroups = new Map<string, Planting[]>();
+    
+    plantings.forEach(planting => {
+      if (planting.parentPlantingId && !planting.assigned) {
+        // This is an unassigned split planting
+        const parentId = planting.parentPlantingId;
+        if (!parentGroups.has(parentId)) {
+          parentGroups.set(parentId, []);
+        }
+        parentGroups.get(parentId)!.push(planting);
+      } else {
+        // This is either not a split planting, or is assigned - keep as is
+        recombinedPlantings.push(planting);
+      }
+    });
+    
+    // Check each parent group for recombination
+    parentGroups.forEach((siblingPlantings, parentId) => {
+      if (processedParentIds.has(parentId)) return;
+      
+      // Check if all siblings are unassigned
+      const allUnassigned = siblingPlantings.every(p => !p.assigned);
+      
+      if (allUnassigned && siblingPlantings.length >= 2) {
+        // Sort by split sequence to ensure proper order
+        siblingPlantings.sort((a, b) => (a.splitSequence || 0) - (b.splitSequence || 0));
+        
+        // Calculate total acres
+        const totalAcres = Math.round(
+          siblingPlantings.reduce((sum, p) => sum + p.acres, 0) * 100
+        ) / 100;
+        
+        // Use the first sibling as the base for reconstruction
+        const basePlanting = siblingPlantings[0];
+        
+        // Create the recombined planting (restore original parent ID)
+        const recombinedPlanting: Planting = {
+          ...basePlanting,
+          id: parentId,
+          acres: totalAcres,
+          totalYield: plantingService.calculateTotalYield(totalAcres, basePlanting.budgetYieldPerAcre || 0),
+          splitSequence: undefined,
+          parentPlantingId: undefined,
+          splitTimestamp: undefined,
+          assigned: false
+        };
+        
+        recombinedPlantings.push(recombinedPlanting);
+        recombinations.push({
+          parentId,
+          combinedAcres: totalAcres,
+          splitCount: siblingPlantings.length
+        });
+        
+        processedParentIds.add(parentId);
+      } else {
+        // Can't recombine - keep all siblings as separate plantings
+        siblingPlantings.forEach(p => recombinedPlantings.push(p));
+      }
+    });
+    
+    return { recombined: recombinedPlantings, recombinations };
   }
 };

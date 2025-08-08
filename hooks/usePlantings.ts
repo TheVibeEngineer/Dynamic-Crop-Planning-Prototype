@@ -13,6 +13,7 @@ import { STORAGE_KEYS } from '@/lib/constants';
 import { plantingGenerationService } from '@/lib/services/plantingGeneration';
 import { optimizationEngine } from '@/lib/services/optimization';
 import { capacityService } from '@/lib/services/capacity';
+import { plantingService } from '@/lib/services/planting';
 
 export const usePlantings = (
   orders: Order[], 
@@ -52,7 +53,8 @@ export const usePlantings = (
     plantingId: string, 
     regionId: number, 
     ranchId: number, 
-    lotId: number
+    lotId: number,
+    onSplitNotification?: (notification: SplitNotification) => void
   ) => {
     const planting = plantings.find(p => p.id === plantingId);
     if (!planting) {
@@ -110,11 +112,55 @@ export const usePlantings = (
       const capacity = capacityService.calculateLotCapacity(regionId, ranchId, lotId, currentLandStructure, plantings);
       
       if (capacity.availableAcres > 0) {
+        // Split the planting - assign what fits, keep remainder unassigned
+        const { assignedPortion, unassignedRemainder } = plantingService.splitPlanting(
+          planting, 
+          capacity.availableAcres
+        );
+        
+        const sublot = capacityService.getNextSublotDesignation(regionId, ranchId, lotId, plantings);
+        const assignedWithLocation: Planting = {
+          ...assignedPortion,
+          assigned: true,
+          region: region.region,
+          ranch: ranch.name,
+          lot: lot.number,
+          sublot,
+          uniqueLotId: `${regionId}-${ranchId}-${lotId}`,
+          displayLotId: `${region.region} > ${ranch.name} > Lot ${lot.number}${sublot ? `-${sublot}` : ''}`,
+          assignedLot: {
+            regionId,
+            ranchId,
+            lotId,
+            sublot
+          }
+        };
+        
+        // Update plantings: remove original, add assigned portion and unassigned remainder
+        setPlantings(prev => [
+          ...prev.filter(p => p.id !== plantingId),
+          assignedWithLocation,
+          unassignedRemainder
+        ]);
+        
+        // Notify about the split
+        if (onSplitNotification) {
+          onSplitNotification({
+            plantingId: planting.id,
+            crop: planting.crop,
+            variety: planting.variety,
+            originalAcres: planting.acres,
+            assignedAcres: assignedWithLocation.acres,
+            remainingAcres: unassignedRemainder.acres,
+            lotLocation: `${region.region} > ${ranch.name} > Lot ${lot.number}`
+          });
+        }
+        
         return { 
-          success: false, 
-          type: 'partial_fit',
-          availableAcres: capacity.availableAcres,
-          message: `Only ${capacity.availableAcres} acres available (${capacity.usedAcres}/${capacity.totalAcres} acres used)`
+          success: true, 
+          type: 'split',
+          assignedAcres: assignedWithLocation.acres,
+          remainingAcres: unassignedRemainder.acres
         };
       } else {
         return { 
@@ -126,7 +172,7 @@ export const usePlantings = (
     }
   };
 
-  const unassignPlanting = (plantingId: string) => {
+  const unassignPlanting = (plantingId: string, onRecombineNotification?: (notification: any) => void) => {
     const planting = plantings.find(p => p.id === plantingId);
     if (!planting || !planting.assigned) {
       return { success: false, type: 'not_found_or_unassigned' };
@@ -144,9 +190,36 @@ export const usePlantings = (
       assignedLot: undefined
     };
     
-    setPlantings(prev => prev.map(p => 
-      p.id === plantingId ? unassignedPlanting : p
-    ));
+    // Update plantings with the unassigned planting
+    setPlantings(prev => {
+      const updatedPlantings = prev.map(p => 
+        p.id === plantingId ? unassignedPlanting : p
+      );
+      
+      // Check if this creates an opportunity to recombine split plantings
+      const { recombined, recombinations } = plantingService.recombineSplitPlantings(updatedPlantings);
+      
+      // If any recombinations occurred, notify and return the recombined plantings
+      if (recombinations.length > 0) {
+        recombinations.forEach(recombination => {
+          if (onRecombineNotification) {
+            onRecombineNotification({
+              type: 'recombined',
+              parentId: recombination.parentId,
+              combinedAcres: recombination.combinedAcres,
+              splitCount: recombination.splitCount,
+              crop: unassignedPlanting.crop,
+              variety: unassignedPlanting.variety
+            });
+          }
+        });
+        
+        console.log(`🔄 Recombined ${recombinations.length} split plantings`);
+        return recombined;
+      }
+      
+      return updatedPlantings;
+    });
     
     return { success: true, type: 'unassigned' };
   };

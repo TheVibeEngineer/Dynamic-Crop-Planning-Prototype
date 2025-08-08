@@ -9,7 +9,7 @@ import { useOrders } from '@/hooks/useOrders';
 import { useCommodities } from '@/hooks/useCommodities';
 import { useLandManagement } from '@/hooks/useLandManagement';
 import { usePlantings } from '@/hooks/usePlantings';
-import { useSplitNotifications, useOptimizationResults } from '@/hooks/useNotifications';
+import { useSplitNotifications, useOptimizationResults, useRecombineNotifications } from '@/hooks/useNotifications';
 import { useDragAndDrop } from '@/hooks/useDragAndDrop';
 import { csvService } from '@/lib/services/csv';
 import type { Order } from '@/types/orders';
@@ -72,6 +72,9 @@ export interface AppContextType {
   splitNotification: SplitNotification | null;
   showSplitNotification: (notification: SplitNotification) => void;
   clearSplitNotification: () => void;
+  recombineNotification: any | null;
+  showRecombineNotification: (notification: any) => void;
+  clearRecombineNotification: () => void;
   
   // Optimization
   optimizationResults: OptimizationResults | null;
@@ -120,10 +123,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   
   // Notifications and optimization
   const { splitNotification, showSplitNotification, clearSplitNotification } = useSplitNotifications();
+  const { recombineNotification, showRecombineNotification, clearRecombineNotification } = useRecombineNotifications();
   const { optimizationResults, isOptimizing, setIsOptimizing, showOptimizationResults, clearOptimizationResults } = useOptimizationResults();
   
   // Drag and drop
-  const dragHandlers = useDragAndDrop(assignPlantingToLot, unassignPlanting, findLot, landStructure, plantings, showSplitNotification);
+  const dragHandlers = useDragAndDrop(assignPlantingToLot, unassignPlanting, findLot, landStructure, plantings, showSplitNotification, showRecombineNotification);
 
   // Enhanced optimization function
   const handleOptimizeAllPlantings = () => {
@@ -189,6 +193,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     splitNotification,
     showSplitNotification,
     clearSplitNotification,
+    recombineNotification,
+    showRecombineNotification,
+    clearRecombineNotification,
     
     // Optimization
     optimizationResults,

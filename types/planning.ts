@@ -57,7 +57,7 @@ export interface PlantingsState {
 
 export interface PlantingsActions {
   generatePlantings: () => void;
-  assignPlantingToLot: (plantingId: string, regionId: number, ranchId: number, lotId: number) => void;
+  assignPlantingToLot: (plantingId: string, regionId: number, ranchId: number, lotId: number, onSplitNotification?: (notification: SplitNotification) => void) => any;
   unassignPlanting: (plantingId: string) => any;
   optimizeAllPlantings: (onSplit?: (notification: any) => void, onResults?: (results: any) => void) => any;
 }

@@ -34,8 +34,22 @@ export const useOptimizationResults = () => {
   return { 
     optimizationResults, 
     isOptimizing, 
-    setIsOptimizing,
+    setIsOptimizing, 
     showOptimizationResults, 
     clearOptimizationResults 
   };
+};
+
+export const useRecombineNotifications = () => {
+  const [recombineNotification, setRecombineNotification] = useState<any | null>(null);
+
+  const showRecombineNotification = (notification: any) => {
+    setRecombineNotification(notification);
+  };
+
+  const clearRecombineNotification = () => {
+    setRecombineNotification(null);
+  };
+
+  return { recombineNotification, showRecombineNotification, clearRecombineNotification };
 };
